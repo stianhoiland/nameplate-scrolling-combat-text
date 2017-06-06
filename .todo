@@ -1,16 +1,28 @@
 NameplateSCT:
     Launch feature-set:
         ☐ Support friendly nameplates with healing
+        ☐ Support more event sources like misses/parrys
 
     Animations:
+        ☐ Animation settings for each animation type
         ☐ Shake animation
         ☐ Preemptive scrolling/sticky
         ☐ New animations?
-    
+            ☐ Stacked fade out
+            ☐ Vertical down
+            ☐ "Cloud"
+
     Coloring:
         ☐ School coloring for multi-school damage
         ☐ Implement colorpicker in menu
         ☐ Use better colors for things, the default colors blow
 
+    Menu:
+        ☐ Add missing options
+            ☐ font
+            ☐ offsets
+            ☐ embiggen crits
+
     Misc:
         ☐ Code-organization (register animations/not have janky CLE direct to text out)
+        ☐ Specify format string? Be able to have no numbers

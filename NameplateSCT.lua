@@ -62,7 +62,51 @@ local defaults = {
             alpha = 0.75,
         },
     },
-}
+};
+
+
+----------------------
+-- FONTSTRING CACHE --
+----------------------
+local fontStringCache = {};
+local function getFontString()
+    local fontString;
+
+    if (next(fontStringCache)) then
+        fontString = table.remove(fontStringCache);
+    else
+        fontString = NameplateSCT.frame:CreateFontString();
+    end
+
+    fontString:SetFont(NameplateSCT.db.global.font, 15, "OUTLINE")
+    fontString:SetAlpha(1);
+    fontString:SetDrawLayer("OVERLAY", 7);
+    fontString:SetText("");
+    fontString:Show();
+
+    return fontString;
+end
+
+local function recycleFontString(fontString)
+    fontString:SetAlpha(0);
+    fontString:Hide();
+
+    nameplateFontStrings[fontString.unit][fontString] = nil;
+    animating[fontString] = nil;
+
+    fontString.distance = nil;
+    fontString.arcTop = nil;
+    fontString.arcBottom = nil;
+    fontString.arcXDist = nil;
+    fontString.deflection = nil;
+    fontString.numShakes = nil;
+    fontString.animation = nil;
+    fontString.animatingDuration = nil;
+    fontString.animatingStartTime = nil;
+    fontString.anchorFrame = nil;
+
+    table.insert(fontStringCache, fontString);
+end
 
 
 ----------
@@ -105,45 +149,6 @@ function NameplateSCT:OnDisable()
 end
 
 
-----------------------
--- FONTSTRING CACHE --
-----------------------
-local fontStringCache = {};
-local function getFontString()
-    local fontString;
-
-    if (next(fontStringCache)) then
-        fontString = table.remove(fontStringCache);
-    else
-        fontString = NameplateSCT.frame:CreateFontString();
-    end
-    
-    fontString:SetFont(NameplateSCT.db.global.font, 15, "OUTLINE")
-    fontString:SetAlpha(1);
-    fontString:SetDrawLayer("OVERLAY", 7);
-    fontString:SetText("");
-    fontString:Show();
-    
-    return fontString;
-end
-
-local function recycleFontString(fontString)
-    fontString:SetAlpha(0);
-    fontString:Hide();
-
-    nameplateFontStrings[fontString.nameplateUnit][fontString] = nil;
-    fontString.nameplateUnit = nil;
-
-    -- clear animation
-    fontString.animatingDuration = nil;
-    fontString.animatingStartTime = nil;
-    fontString.nameplate = nil;
-    animating[fontString] = nil;
-
-    table.insert(fontStringCache, fontString);
-end
-
-
 ---------------
 -- ANIMATION --
 ---------------
@@ -151,15 +156,11 @@ local function verticalLinearPath(progress, distance)
     return 0, progress * distance;
 end
 
-local function horizontalLinearPath(progress, distance)
-    return progress * distance, 0;
-end
-
 local function arcPath(progress, xDist, yStart, yTop, yBottom)
     local x, y;
 
     x = progress * xDist;
-    
+
     -- progress 0 to 1
     -- at progress 0, y = yStart
     -- at progress 0.5 y = yTop
@@ -196,13 +197,13 @@ end
 local function AnimationOnUpdate()
     if (next(animating)) then
         for fontString, _ in pairs(animating) do
-            if (GetTime() - fontString.animatingStartTime > fontString.animatingDuration or UnitIsDead(fontString.nameplateUnit)) then
+            if (GetTime() - fontString.animatingStartTime > fontString.animatingDuration or UnitIsDead(fontString.unit) or not fontString.anchorFrame or not fontString.anchorFrame:IsShown()) then
                 -- the animation is over or the unit it was attached to is dead
                 recycleFontString(fontString);
             else
                 -- alpha
                 local startAlpha = NameplateSCT.db.global.formatting.alpha;
-                if (NameplateSCT.db.global.useOffTarget and not UnitIsUnit(fontString.nameplateUnit, "target")) then
+                if (NameplateSCT.db.global.useOffTarget and not UnitIsUnit(fontString.unit, "target")) then
                     startAlpha = NameplateSCT.db.global.offTargetFormatting.alpha;
                 end
 
@@ -225,7 +226,7 @@ local function AnimationOnUpdate()
                     yOffset = 0;
                 end
 
-                fontString:SetPoint("CENTER", fontString.nameplate, "CENTER", xOffset, NameplateSCT.db.global.yOffset + yOffset);
+                fontString:SetPoint("CENTER", fontString.anchorFrame, "CENTER", xOffset, NameplateSCT.db.global.yOffset + yOffset);
             end
         end
     else
@@ -235,19 +236,13 @@ local function AnimationOnUpdate()
 end
 
 local arcDirection = 1;
-function NameplateSCT:Animate(fontString, nameplate, duration, crit)
-    local animation = "vertical";
-
-    if (crit) then
-        animation = self.db.global.animations.crit;
-    else
-        animation = self.db.global.animations.normal;
-    end
+function NameplateSCT:Animate(fontString, anchorFrame, duration, animation)
+    animation = animation or "vertical";
 
     fontString.animation = animation;
     fontString.animatingDuration = duration;
     fontString.animatingStartTime = GetTime();
-    fontString.nameplate = nameplate;
+    fontString.anchorFrame = anchorFrame;
 
     if (animation == "vertical") then
         fontString.distance = 100;
@@ -289,51 +284,54 @@ function NameplateSCT:NAME_PLATE_UNIT_REMOVED(event, unitID)
     for fontString, _ in pairs(nameplateFontStrings[unitID]) do
         recycleFontString(fontString);
     end
-    
+
     nameplateFontStrings[unitID] = nil;
 end
 
 function NameplateSCT:COMBAT_LOG_EVENT_UNFILTERED(event, time, cle, hideCaster, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, ...)
-    -- if the player (or his pet/guardian) does damage to something
-    if (((playerGUID == sourceGUID)
-        or (((bit.band(sourceFlags, COMBATLOG_OBJECT_TYPE_GUARDIAN) > 0) or (bit.band(sourceFlags, COMBATLOG_OBJECT_TYPE_PET) > 0)) and bit.band(sourceFlags, COMBATLOG_OBJECT_AFFILIATION_MINE) > 0))
-        and string.find(cle, "_DAMAGE")) then
-        local unit = guidToUnit[destGUID];
+    -- only use player events (or their pet/guardian)
+    if ((playerGUID == sourceGUID)
+        or (((bit.band(sourceFlags, COMBATLOG_OBJECT_TYPE_GUARDIAN) > 0) or (bit.band(sourceFlags, COMBATLOG_OBJECT_TYPE_PET) > 0)) and bit.band(sourceFlags, COMBATLOG_OBJECT_AFFILIATION_MINE) > 0)) then
+        local destUnit = guidToUnit[destGUID];
 
-        -- and there is a nameplate with this guid
-        if (unit and not string.find(cle, "ENVIRONMENTAL")) then
-            local spellID, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand;
-            
-            if (string.find(cle, "SWING")) then
-                spellName, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand = "melee", ...;
-            else
-                spellID, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand = ...;
+        if (destUnit) then
+            if (string.find(cle, "_DAMAGE")) then
+                local spellID, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand;
+
+                if (string.find(cle, "SWING")) then
+                    spellName, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand = "melee", ...;
+                else
+                    spellID, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand = ...;
+                end
+
+                self:DamageEvent(destUnit, spellID, amount, school, critical)
+            elseif(string.find(cle, "_HEAL")) then
+                local spellID, spellName, spellSchool, amount, overhealing, absorbed, critical = ...;
+
+                self:HealEvent(destUnit, spellID, amount, critical);
+            elseif(string.find(cle, "_MISSED")) then
+                local spellID, spellName, spellSchool, missType, isOffHand, amountMissed;
+
+                if (string.find(cle, "SWING")) then
+                    missType, isOffHand, amountMissed = "melee", ...;
+                else
+                    spellID, spellName, spellSchool, missType, isOffHand, amountMissed = ...;
+                end
+
+                self:MissEvent(destUnit, spellID, missType);
             end
-
-            local text, size = self:FormatDamage(amount, spellID, school, UnitIsUnit(unit, "target"), critical);
-            self:DisplayText(unit, text, size, critical);
         end
     end
 end
 
-function NameplateSCT:DisplayText(nameplateUnit, text, size, crit)
-    local fontString = getFontString();
-    local nameplate = C_NamePlate.GetNamePlateForUnit(nameplateUnit);
 
-    if (nameplate) then
-        fontString:SetText(text);
-        fontString:SetFont(self.db.global.font, size or 15, "OUTLINE");
-        fontString.nameplateUnit = nameplateUnit;
-        self:Animate(fontString, nameplate, 1.5, crit);
-        nameplateFontStrings[nameplateUnit][fontString] = true;
-    end
-end
+-------------
+-- DISPLAY --
+-------------
+function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
+    local text, animation, size, icon, alpha;
 
-function NameplateSCT:FormatDamage(amount, spellID, school, target, crit)
-    local text;
-
-    local size, icon, alpha;
-    if (self.db.global.useOffTarget and not target) then
+    if (self.db.global.useOffTarget and not UnitIsUnit(unit, "target")) then
         size = self.db.global.offTargetFormatting.size;
         icon = self.db.global.offTargetFormatting.icon;
         alpha = self.db.global.offTargetFormatting.alpha;
@@ -343,22 +341,21 @@ function NameplateSCT:FormatDamage(amount, spellID, school, target, crit)
         alpha = self.db.global.formatting.alpha;
     end
 
+    -- select an animation
+    if (crit) then
+        animation = self.db.global.animations.crit;
+    else
+        animation = self.db.global.animations.normal;
+    end
+
     -- truncate
-    if (self.db.global.truncate) then
-        if (amount >= 1000000) then
-            text = string.format("%.1f", amount / 1000000);
+    if (self.db.global.truncate and amount >= 1000000 and self.db.global.truncateLetter) then
+        text = string.format("%.1fM", amount / 1000000);
+    elseif (self.db.global.truncate and amount >= 1000) then
+        text = string.format("%.0f", amount / 1000);
 
-            if (self.db.global.truncateLetter) then
-                text = text.."M";
-            end
-        elseif (amount >= 1000) then
-            text = string.format("%.0f", amount / 1000);
-
-            if (self.db.global.truncateLetter) then
-                text = text.."k";
-            end
-        else
-            text = tostring(amount);
+        if (self.db.global.truncateLetter) then
+            text = text.."k";
         end
     else
         text = tostring(amount);
@@ -370,7 +367,7 @@ function NameplateSCT:FormatDamage(amount, spellID, school, target, crit)
     else
         text = "|Cff"..self.db.global.defaultColor..text.."|r";
     end
-    
+
     -- add icons
     if (icon ~= "none" and spellID) then
         local iconText = "|T"..GetSpellTexture(spellID)..":0|t";
@@ -389,7 +386,31 @@ function NameplateSCT:FormatDamage(amount, spellID, school, target, crit)
         size = size * self.db.global.embiggenCritsScale;
     end
 
-    return text, size;
+    self:DisplayText(unit, text, size, animation)
+end
+
+function NameplateSCT:MissEvent(unit, spellID, missType)
+    -- TODO
+end
+
+function NameplateSCT:HealEvent(unit, spellID, amount, crit)
+    -- TODO
+end
+
+function NameplateSCT:DisplayText(unit, text, size, animation)
+    local fontString = getFontString();
+    local nameplate = C_NamePlate.GetNamePlateForUnit(unit);
+
+    if (nameplate) then
+        fontString.unit = unit;
+        fontString:SetText(text);
+        fontString:SetFont(self.db.global.font, size or 15, "OUTLINE");
+
+        nameplateFontStrings[unit][fontString] = true;
+
+        -- animate the new fontString
+        self:Animate(fontString, nameplate, 1.5, animation);
+    end
 end
 
 
@@ -422,7 +443,7 @@ local menu = {
             set = function(_, newValue) if (not newValue) then NameplateSCT:Disable(); else NameplateSCT:Enable(); end end,
             order = 1,
         },
-        
+
         animations = {
             type = 'group',
             name = "Animations",
