@@ -1,0 +1,16 @@
+NameplateSCT:
+    Launch feature-set:
+        ☐ Support friendly nameplates with healing
+
+    Animations:
+        ☐ Shake animation
+        ☐ Preemptive scrolling/sticky
+        ☐ New animations?
+    
+    Coloring:
+        ☐ School coloring for multi-school damage
+        ☐ Implement colorpicker in menu
+        ☐ Use better colors for things, the default colors blow
+
+    Misc:
+        ☐ Code-organization (register animations/not have janky CLE direct to text out)
