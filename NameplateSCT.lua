@@ -81,14 +81,14 @@ local ANIMATION_VERTICAL_DISTANCE = 75;
 local ANIMATION_ARC_X_MIN = 50;
 local ANIMATION_ARC_X_MAX = 150;
 local ANIMATION_ARC_Y_TOP_MIN = 10;
-local ANIMATION_ARC_Y_TOP_MAX = 75;
+local ANIMATION_ARC_Y_TOP_MAX = 50;
 local ANIMATION_ARC_Y_BOTTOM_MIN = 10;
-local ANIMATION_ARC_Y_BOTTOM_MAX = 150;
+local ANIMATION_ARC_Y_BOTTOM_MAX = 50;
 
 local ANIMATION_SHAKE_DEFLECTION = 15;
 local ANIMATION_SHAKE_NUM_SHAKES = 4;
 
-local ANIMATION_LENGTH = 1.5;
+local ANIMATION_LENGTH = 1;
 
 
 ----------------------
@@ -106,7 +106,7 @@ local function getFontString()
 
     fontString:SetFont(NameplateSCT.db.global.font, 15, "OUTLINE")
     fontString:SetAlpha(1);
-    fontString:SetDrawLayer("OVERLAY", 7);
+    fontString:SetDrawLayer("OVERLAY");
     fontString:SetText("");
     fontString:Show();
 
@@ -525,11 +525,27 @@ local menu = {
             order = 1,
         },
 
+        disableBlizzardFCT = {
+            type = 'toggle',
+            name = "Disable Blizzard FCT",
+            desc = "",
+            get = function(_, newValue) return GetCVar("floatingCombatTextCombatDamage") == "0" end,
+            set = function(_, newValue)
+                if (newValue) then
+                    SetCVar("floatingCombatTextCombatDamage", "0");
+                else
+                    SetCVar("floatingCombatTextCombatDamage", "1");
+                end
+            end,
+            order = 2,
+        },
+
         animations = {
             type = 'group',
             name = "Animations",
-            order = 80,
+            order = 10,
             inline = true,
+            disabled = function() return not NameplateSCT.db.global.enabled; end;
             args = {
                 normal = {
                     type = 'select',
@@ -557,6 +573,7 @@ local menu = {
             name = "Text Appearence",
             order = 90,
             inline = true,
+            disabled = function() return not NameplateSCT.db.global.enabled; end;
             args = {
                 truncate = {
                     type = 'toggle',
@@ -570,7 +587,7 @@ local menu = {
                     type = 'toggle',
                     name = "Show Truncated Letter",
                     desc = "",
-                    disabled = function() return not NameplateSCT.db.global.truncate; end,
+                    disabled = function() return not NameplateSCT.db.global.enabled or not NameplateSCT.db.global.truncate; end,
                     get = function() return NameplateSCT.db.global.truncateLetter; end,
                     set = function(_, newValue) NameplateSCT.db.global.truncateLetter = newValue; end,
                     order = 2,
@@ -667,6 +684,60 @@ local menu = {
                 },
             },
         },
+
+        sizing = {
+            type = 'group',
+            name = "Sizing Modifiers",
+            order = 100,
+            inline = true,
+            disabled = function() return not NameplateSCT.db.global.enabled; end;
+            args = {
+                embiggenCrits = {
+                    type = 'toggle',
+                    name = "Embiggen Crits",
+                    desc = "",
+                    get = function() return NameplateSCT.db.global.embiggenCrits; end,
+                    set = function(_, newValue) NameplateSCT.db.global.embiggenCrits = newValue; end,
+                    order = 1,
+                },
+                embiggenCritsScale = {
+                    type = 'range',
+                    name = "Embiggen Crits Scale",
+                    desc = "",
+                    disabled = function() return not NameplateSCT.db.global.enabled or not NameplateSCT.db.global.embiggenCrits; end,
+                    min = 1,
+                    max = 3,
+                    step = .01,
+                    get = function() return NameplateSCT.db.global.embiggenCritsScale; end,
+                    set = function(_, newValue) NameplateSCT.db.global.embiggenCritsScale = newValue; end,
+                    order = 2,
+                    width = "double",
+                },
+
+                smallHitSizing = {
+                    type = 'toggle',
+                    name = "Scale Down Small Hits",
+                    desc = "",
+                    get = function() return NameplateSCT.db.global.smallHitSizing; end,
+                    set = function(_, newValue) NameplateSCT.db.global.smallHitSizing = newValue; end,
+                    order = 10,
+                },
+                smallHitScale = {
+                    type = 'range',
+                    name = "Embiggen Crits Scale",
+                    desc = "",
+                    disabled = function() return not NameplateSCT.db.global.enabled or not NameplateSCT.db.global.smallHitScale; end,
+                    min = 0.33,
+                    max = 1,
+                    step = .01,
+                    get = function() return NameplateSCT.db.global.smallHitScale; end,
+                    set = function(_, newValue) NameplateSCT.db.global.smallHitScale = newValue; end,
+                    order = 11,
+                    width = "double",
+                },
+            },
+        },
+
     },
 };
 

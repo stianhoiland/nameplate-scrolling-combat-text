@@ -19,16 +19,17 @@ NameplateSCT:
 
     Menu:
         ☐ Add missing options
+            ✔ Disable blizzard fct @done (6/8/2017, 1:03:14 PM)
             ☐ colorpicker in menu for default color
             ☐ font
             ☐ offsets
-            ☐ embiggen crits
-            ☐ scale down smaller hits
+            ✔ embiggen crits @done (6/8/2017, 12:28:20 PM)
+            ✔ scale down smaller hits @done (6/8/2017, 12:28:21 PM)
 
     Misc:
+        ☐ Be able to specify in-front/behind nameplates
         ☐ Specify format string? Be able to have no numbers
         ☐ Merge damage events
         ☐ Minimum damage/healing
-        ☐ Disable blizzard fct
         ✔ Scale font size by damage @done (6/7/2017, 1:29:53 PM)
         ☐ Swap to profiles
