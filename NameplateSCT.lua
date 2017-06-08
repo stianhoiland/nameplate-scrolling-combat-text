@@ -37,17 +37,21 @@ local defaults = {
         enabled = true,
         damageColor = true,
         defaultColor = "FFFFFF",
-        useOffTarget = true,
-        truncate = true,
-        truncateLetter = true,
-        embiggenCrits = true,
-        embiggenCritsScale = 1.5,
         font = [[Interface\Addons\SharedMedia\fonts\bazooka\Bazooka.ttf]],
         yOffset = 0,
 
+        truncate = true,
+        truncateLetter = true,
+
+        embiggenCrits = true,
+        embiggenCritsScale = 1.5,
+
+        smallHitSizing = true,
+        smallHitScale = 0.66,
+
         animations = {
             normal = "fountain",
-            crit = "vertical",
+            crit = "verticalUp",
         },
 
         formatting = {
@@ -56,6 +60,7 @@ local defaults = {
             alpha = 1,
         },
 
+        useOffTarget = true,
         offTargetFormatting = {
             size = 15,
             icon = "none",
@@ -63,6 +68,27 @@ local defaults = {
         },
     },
 };
+
+
+---------------------
+-- LOCAL CONSTANTS --
+---------------------
+local SMALL_HIT_EXPIRY_WINDOW = 30;
+local SMALL_HIT_MULTIPIER = 0.5;
+
+local ANIMATION_VERTICAL_DISTANCE = 75;
+
+local ANIMATION_ARC_X_MIN = 50;
+local ANIMATION_ARC_X_MAX = 150;
+local ANIMATION_ARC_Y_TOP_MIN = 10;
+local ANIMATION_ARC_Y_TOP_MAX = 75;
+local ANIMATION_ARC_Y_BOTTOM_MIN = 10;
+local ANIMATION_ARC_Y_BOTTOM_MAX = 150;
+
+local ANIMATION_SHAKE_DEFLECTION = 15;
+local ANIMATION_SHAKE_NUM_SHAKES = 4;
+
+local ANIMATION_LENGTH = 1.5;
 
 
 ----------------------
@@ -152,12 +178,13 @@ end
 ---------------
 -- ANIMATION --
 ---------------
-local function verticalLinearPath(progress, distance)
-    return 0, progress * distance;
+local function verticalPath(elapsed, duration, distance)
+    return 0, LibEasing.InQuad(elapsed, 0, distance, duration);
 end
 
-local function arcPath(progress, xDist, yStart, yTop, yBottom)
+local function arcPath(elapsed, duration, xDist, yStart, yTop, yBottom)
     local x, y;
+    local progress = elapsed/duration;
 
     x = progress * xDist;
 
@@ -194,10 +221,21 @@ local function arcPath(progress, xDist, yStart, yTop, yBottom)
     return x, y;
 end
 
+local function powSizing(elapsed, duration, start, middle, finish)
+    local size;
+    if (elapsed/duration < 0.5) then
+        size = LibEasing.OutQuint(elapsed, start, middle - start, duration/2)
+    else
+        size = LibEasing.InQuint(elapsed - elapsed/2, middle, finish - middle, duration/2)
+    end
+    return size;
+end
+
 local function AnimationOnUpdate()
     if (next(animating)) then
         for fontString, _ in pairs(animating) do
-            if (GetTime() - fontString.animatingStartTime > fontString.animatingDuration or UnitIsDead(fontString.unit) or not fontString.anchorFrame or not fontString.anchorFrame:IsShown()) then
+            local elapsed = GetTime() - fontString.animatingStartTime;
+            if (elapsed > fontString.animatingDuration or UnitIsDead(fontString.unit) or not fontString.anchorFrame or not fontString.anchorFrame:IsShown()) then
                 -- the animation is over or the unit it was attached to is dead
                 recycleFontString(fontString);
             else
@@ -207,26 +245,37 @@ local function AnimationOnUpdate()
                     startAlpha = NameplateSCT.db.global.offTargetFormatting.alpha;
                 end
 
-                local alpha = LibEasing.InExpo(GetTime() - fontString.animatingStartTime, startAlpha, -startAlpha, fontString.animatingDuration);
+                local alpha = LibEasing.InExpo(elapsed, startAlpha, -startAlpha, fontString.animatingDuration);
                 fontString:SetAlpha(alpha);
 
                 -- position
                 local xOffset, yOffset;
-                if (fontString.animation == "vertical") then
-                    local posProgress = LibEasing.InQuad(GetTime() - fontString.animatingStartTime, 0, 1, fontString.animatingDuration);
-                    xOffset, yOffset = verticalLinearPath(posProgress, fontString.distance)
+                if (fontString.animation == "verticalUp") then
+                    xOffset, yOffset = verticalPath(elapsed, fontString.animatingDuration, fontString.distance);
+                elseif (fontString.animation == "verticalDown") then
+                    xOffset, yOffset = verticalPath(elapsed, fontString.animatingDuration, -fontString.distance);
                 elseif (fontString.animation == "fountain") then
-                    local posProgress = LibEasing.Linear(GetTime() - fontString.animatingStartTime, 0, 1, fontString.animatingDuration);
-                    xOffset, yOffset = arcPath(posProgress, fontString.arcXDist, 0, fontString.arcTop, fontString.arcBottom);
+                    xOffset, yOffset = arcPath(elapsed, fontString.animatingDuration, fontString.arcXDist, 0, fontString.arcTop, fontString.arcBottom);
                 elseif (fontString.animation == "shake") then
-                    -- local progress = (GetTime() - fontString.animatingStartTime)/fontString.animatingDuration;
-                    -- local shakeNum = math.floor(fontString.numShakes/progress);
-                    -- local shakeProgress = progress - (shakeNum-1) * (fontString.animatingDuration/fontString.numShakes);
                     xOffset = 0;
                     yOffset = 0;
                 end
 
                 fontString:SetPoint("CENTER", fontString.anchorFrame, "CENTER", xOffset, NameplateSCT.db.global.yOffset + yOffset);
+
+                -- sizing
+                if (fontString.pow) then
+                    if (elapsed < fontString.animatingDuration/6) then
+                        fontString:SetText(fontString.NSCTTextWithoutIcons);
+
+                        local size = powSizing(elapsed, fontString.animatingDuration/6, fontString.startHeight/2, fontString.startHeight*2, fontString.startHeight);
+                        fontString:SetTextHeight(size);
+                    else
+                        fontString.pow = nil;
+                        fontString:SetFont(NameplateSCT.db.global.font, fontString.NSCTFontSize, "OUTLINE");
+                        fontString:SetText(fontString.NSCTText);
+                    end
+                end
             end
         end
     else
@@ -237,23 +286,25 @@ end
 
 local arcDirection = 1;
 function NameplateSCT:Animate(fontString, anchorFrame, duration, animation)
-    animation = animation or "vertical";
+    animation = animation or "verticalUp";
 
     fontString.animation = animation;
     fontString.animatingDuration = duration;
     fontString.animatingStartTime = GetTime();
     fontString.anchorFrame = anchorFrame;
 
-    if (animation == "vertical") then
-        fontString.distance = 100;
+    if (animation == "verticalUp") then
+        fontString.distance = ANIMATION_VERTICAL_DISTANCE;
+    elseif (animation == "verticalDown") then
+        fontString.distance = ANIMATION_VERTICAL_DISTANCE;
     elseif (animation == "fountain") then
-        fontString.arcTop = math.random(10, 75);
-        fontString.arcBottom = -math.random(10, 150);
-        fontString.arcXDist = arcDirection * math.random(50, 150);
+        fontString.arcTop = math.random(ANIMATION_ARC_Y_TOP_MIN, ANIMATION_ARC_Y_TOP_MAX);
+        fontString.arcBottom = -math.random(ANIMATION_ARC_Y_BOTTOM_MIN, ANIMATION_ARC_Y_BOTTOM_MAX);
+        fontString.arcXDist = arcDirection * math.random(ANIMATION_ARC_X_MIN, ANIMATION_ARC_X_MAX);
         arcDirection = arcDirection * -1;
     elseif (animation == "shake") then
-        fontString.deflection = 15;
-        fontString.numShakes = 4;
+        fontString.deflection = ANIMATION_SHAKE_DEFLECTION;
+        fontString.numShakes = ANIMATION_SHAKE_NUM_SHAKES;
     end
 
     animating[fontString] = true;
@@ -304,11 +355,7 @@ function NameplateSCT:COMBAT_LOG_EVENT_UNFILTERED(event, time, cle, hideCaster, 
                     spellID, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand = ...;
                 end
 
-                self:DamageEvent(destUnit, spellID, amount, school, critical)
-            elseif(string.find(cle, "_HEAL")) then
-                local spellID, spellName, spellSchool, amount, overhealing, absorbed, critical = ...;
-
-                self:HealEvent(destUnit, spellID, amount, critical);
+                self:DamageEvent(destUnit, spellID, amount, school, critical);
             elseif(string.find(cle, "_MISSED")) then
                 local spellID, spellName, spellSchool, missType, isOffHand, amountMissed;
 
@@ -319,6 +366,10 @@ function NameplateSCT:COMBAT_LOG_EVENT_UNFILTERED(event, time, cle, hideCaster, 
                 end
 
                 self:MissEvent(destUnit, spellID, missType);
+            -- elseif(string.find(cle, "_HEAL")) then
+            --     local spellID, spellName, spellSchool, amount, overhealing, absorbed, critical = ...;
+
+            --     self:HealEvent(destUnit, spellID, amount, critical);
             end
         end
     end
@@ -328,8 +379,11 @@ end
 -------------
 -- DISPLAY --
 -------------
+local numDamageEvents = 0;
+local lastDamageEventTime;
+local runningAverageDamageEvents = 0;
 function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
-    local text, animation, size, icon, alpha;
+    local text, animation, pow, size, icon, alpha;
 
     if (self.db.global.useOffTarget and not UnitIsUnit(unit, "target")) then
         size = self.db.global.offTargetFormatting.size;
@@ -344,8 +398,10 @@ function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
     -- select an animation
     if (crit) then
         animation = self.db.global.animations.crit;
+        pow = true;
     else
         animation = self.db.global.animations.normal;
+        pow = false;
     end
 
     -- truncate
@@ -369,6 +425,7 @@ function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
     end
 
     -- add icons
+    local textWithoutIcons = text;
     if (icon ~= "none" and spellID) then
         local iconText = "|T"..GetSpellTexture(spellID)..":0|t";
 
@@ -381,35 +438,58 @@ function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
         end
     end
 
+    -- shrink small hits
+    if (self.db.global.smallHitSizing) then
+        if (not lastDamageEventTime or (lastDamageEventTime + SMALL_HIT_EXPIRY_WINDOW < GetTime())) then
+            numDamageEvents = 0;
+            runningAverageDamageEvents = 0;
+        end
+
+        runningAverageDamageEvents = ((runningAverageDamageEvents*numDamageEvents) + amount)/(numDamageEvents + 1);
+        numDamageEvents = numDamageEvents + 1;
+        lastDamageEventTime = GetTime();
+
+        if ((not crit and amount < SMALL_HIT_MULTIPIER*runningAverageDamageEvents)
+            or (crit and amount/2 < SMALL_HIT_MULTIPIER*runningAverageDamageEvents)) then
+            size = size * self.db.global.smallHitScale;
+        end
+    end
+
     -- embiggen crit's size
     if (self.db.global.embiggenCrits and crit) then
         size = size * self.db.global.embiggenCritsScale;
     end
 
-    self:DisplayText(unit, text, size, animation)
+    self:DisplayText(unit, text, textWithoutIcons, size, animation, pow)
 end
 
 function NameplateSCT:MissEvent(unit, spellID, missType)
     -- TODO
 end
 
-function NameplateSCT:HealEvent(unit, spellID, amount, crit)
-    -- TODO
-end
+-- function NameplateSCT:HealEvent(unit, spellID, amount, crit)
+--     -- TODO
+-- end
 
-function NameplateSCT:DisplayText(unit, text, size, animation)
+function NameplateSCT:DisplayText(unit, text, textWithoutIcons, size, animation, pow)
     local fontString = getFontString();
     local nameplate = C_NamePlate.GetNamePlateForUnit(unit);
 
     if (nameplate) then
-        fontString.unit = unit;
-        fontString:SetText(text);
-        fontString:SetFont(self.db.global.font, size or 15, "OUTLINE");
+        fontString.NSCTText = text;
+        fontString.NSCTTextWithoutIcons = textWithoutIcons;
+        fontString:SetText(fontString.NSCTText);
 
+        fontString.NSCTFontSize = size;
+        fontString:SetFont(self.db.global.font, fontString.NSCTFontSize, "OUTLINE");
+        fontString.startHeight = fontString:GetStringHeight();
+        fontString.pow = pow;
+
+        fontString.unit = unit;
         nameplateFontStrings[unit][fontString] = true;
 
         -- animate the new fontString
-        self:Animate(fontString, nameplate, 1.5, animation);
+        self:Animate(fontString, nameplate, ANIMATION_LENGTH, animation);
     end
 end
 
@@ -425,8 +505,9 @@ local iconValues = {
 };
 
 local animationValues = {
-    ["shake"] = "Shake",
-    ["vertical"] = "Vertical",
+    -- ["shake"] = "Shake",
+    ["verticalUp"] = "Vertical Up",
+    ["verticalDown"] = "Vertical Down",
     ["fountain"] = "Fountain",
 };
 

@@ -1,28 +1,34 @@
 NameplateSCT:
     Launch feature-set:
-        ☐ Support friendly nameplates with healing
         ☐ Support more event sources like misses/parrys
 
     Animations:
+        ☐ Better animation system (register animations)
         ☐ Animation settings for each animation type
-        ☐ Shake animation
         ☐ Preemptive scrolling/sticky
         ☐ New animations?
+            ☐ Shake
             ☐ Stacked fade out
-            ☐ Vertical down
             ☐ "Cloud"
+            ✔ Vertical down @done (6/7/2017, 11:53:18 PM)
+            ✔ Pow @done (6/7/2017, 1:30:16 PM)
 
     Coloring:
         ☐ School coloring for multi-school damage
-        ☐ Implement colorpicker in menu
         ☐ Use better colors for things, the default colors blow
 
     Menu:
         ☐ Add missing options
+            ☐ colorpicker in menu for default color
             ☐ font
             ☐ offsets
             ☐ embiggen crits
+            ☐ scale down smaller hits
 
     Misc:
-        ☐ Code-organization (register animations/not have janky CLE direct to text out)
         ☐ Specify format string? Be able to have no numbers
+        ☐ Merge damage events
+        ☐ Minimum damage/healing
+        ☐ Disable blizzard fct
+        ✔ Scale font size by damage @done (6/7/2017, 1:29:53 PM)
+        ☐ Swap to profiles
