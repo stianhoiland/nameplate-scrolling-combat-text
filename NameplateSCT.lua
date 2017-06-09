@@ -3,6 +3,7 @@
 ---------------
 local AceAddon = LibStub("AceAddon-3.0");
 local LibEasing = LibStub("LibEasing-1.0");
+local SharedMedia = LibStub("LibSharedMedia-3.0");
 
 NameplateSCT = AceAddon:NewAddon("NameplateSCT", "AceConsole-3.0", "AceEvent-3.0");
 NameplateSCT.frame = CreateFrame("Frame", "NameplateSCT.frame", UIParent);
@@ -32,12 +33,17 @@ local damageTypeColors = {
 --------
 -- DB --
 --------
+local defaultFont = "Friz Quadrata TT";
+if (SharedMedia:IsValid("font", "Bazooka")) then
+    defaultFont = "Bazooka";
+end
+
 local defaults = {
     global = {
         enabled = true,
         damageColor = true,
         defaultColor = "FFFFFF",
-        font = [[Interface\Addons\SharedMedia\fonts\bazooka\Bazooka.ttf]],
+        font = defaultFont,
         yOffset = 0,
 
         truncate = true,
@@ -91,9 +97,19 @@ local ANIMATION_SHAKE_NUM_SHAKES = 4;
 local ANIMATION_LENGTH = 1;
 
 
-----------------------
--- FONTSTRING CACHE --
-----------------------
+----------------
+-- FONTSTRING --
+----------------
+local function getFontPath(fontName)
+    local fontPath = SharedMedia:Fetch("font", fontName);
+
+    if (fontPath == nil) then
+        fontPath = "Fonts\\FRIZQT__.TTF";
+    end
+
+    return fontPath;
+end
+
 local fontStringCache = {};
 local function getFontString()
     local fontString;
@@ -104,7 +120,7 @@ local function getFontString()
         fontString = NameplateSCT.frame:CreateFontString();
     end
 
-    fontString:SetFont(NameplateSCT.db.global.font, 15, "OUTLINE")
+    fontString:SetFont(getFontPath(NameplateSCT.db.global.font), 15, "OUTLINE");
     fontString:SetAlpha(1);
     fontString:SetDrawLayer("OVERLAY");
     fontString:SetText("");
@@ -133,6 +149,8 @@ local function recycleFontString(fontString)
 
     table.insert(fontStringCache, fontString);
 end
+
+
 
 
 ----------
@@ -272,7 +290,7 @@ local function AnimationOnUpdate()
                         fontString:SetTextHeight(size);
                     else
                         fontString.pow = nil;
-                        fontString:SetFont(NameplateSCT.db.global.font, fontString.NSCTFontSize, "OUTLINE");
+                        fontString:SetFont(getFontPath(NameplateSCT.db.global.font), fontString.NSCTFontSize, "OUTLINE");
                         fontString:SetText(fontString.NSCTText);
                     end
                 end
@@ -301,6 +319,7 @@ function NameplateSCT:Animate(fontString, anchorFrame, duration, animation)
         fontString.arcTop = math.random(ANIMATION_ARC_Y_TOP_MIN, ANIMATION_ARC_Y_TOP_MAX);
         fontString.arcBottom = -math.random(ANIMATION_ARC_Y_BOTTOM_MIN, ANIMATION_ARC_Y_BOTTOM_MAX);
         fontString.arcXDist = arcDirection * math.random(ANIMATION_ARC_X_MIN, ANIMATION_ARC_X_MAX);
+
         arcDirection = arcDirection * -1;
     elseif (animation == "shake") then
         fontString.deflection = ANIMATION_SHAKE_DEFLECTION;
@@ -481,7 +500,7 @@ function NameplateSCT:DisplayText(unit, text, textWithoutIcons, size, animation,
         fontString:SetText(fontString.NSCTText);
 
         fontString.NSCTFontSize = size;
-        fontString:SetFont(self.db.global.font, fontString.NSCTFontSize, "OUTLINE");
+        fontString:SetFont(getFontPath(NameplateSCT.db.global.font), fontString.NSCTFontSize, "OUTLINE");
         fontString.startHeight = fontString:GetStringHeight();
         fontString.pow = pow;
 
@@ -568,9 +587,28 @@ local menu = {
             },
         },
 
+        appearence = {
+            type = 'group',
+            name = "Appearence",
+            order = 20,
+            inline = true,
+            disabled = function() return not NameplateSCT.db.global.enabled; end;
+            args = {
+                font = {
+                    type = "select",
+                    dialogControl = "LSM30_Font",
+                    name = "Font",
+                    order = 1,
+                    values = AceGUIWidgetLSMlists.font,
+                    get = function() return NameplateSCT.db.global.font; end,
+                    set = function(_, newValue) NameplateSCT.db.global.font = newValue; end,
+                },
+            },
+        },
+
         formatting = {
             type = 'group',
-            name = "Text Appearence",
+            name = "Text Formatting",
             order = 90,
             inline = true,
             disabled = function() return not NameplateSCT.db.global.enabled; end;
