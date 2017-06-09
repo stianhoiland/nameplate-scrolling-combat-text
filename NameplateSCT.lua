@@ -61,7 +61,7 @@ local defaults = {
         },
 
         formatting = {
-            size = 15,
+            size = 20,
             icon = "right",
             alpha = 1,
         },
@@ -69,8 +69,8 @@ local defaults = {
         useOffTarget = true,
         offTargetFormatting = {
             size = 15,
-            icon = "none",
-            alpha = 0.75,
+            icon = "right",
+            alpha = 0.5,
         },
     },
 };
