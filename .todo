@@ -1,7 +1,4 @@
 NameplateSCT:
-    Launch feature-set:
-        ☐ Support more event sources like misses/parrys
-
     Animations:
         ☐ Better animation system (register animations)
         ☐ Animation settings for each animation type
@@ -10,8 +7,6 @@ NameplateSCT:
             ☐ Shake
             ☐ Stacked fade out
             ☐ "Cloud"
-            ✔ Vertical down @done (6/7/2017, 11:53:18 PM)
-            ✔ Pow @done (6/7/2017, 1:30:16 PM)
 
     Coloring:
         ☐ School coloring for multi-school damage
@@ -19,17 +14,10 @@ NameplateSCT:
 
     Menu:
         ☐ Add missing options
-            ✔ Disable blizzard fct @done (6/8/2017, 1:03:14 PM)
-            ✔ colorpicker in menu for default color @done (6/9/2017, 5:04:05 PM)
-            ✔ font @done (6/9/2017, 2:21:11 PM)
             ☐ offsets
-            ✔ embiggen crits @done (6/8/2017, 12:28:20 PM)
-            ✔ scale down smaller hits @done (6/8/2017, 12:28:21 PM)
-
     Misc:
         ☐ Be able to specify in-front/behind nameplates
         ☐ Specify format string? Be able to have no numbers
         ☐ Merge damage events
         ☐ Minimum damage/healing
-        ✔ Scale font size by damage @done (6/7/2017, 1:29:53 PM)
         ☐ Swap to profiles

@@ -19,29 +19,6 @@ local nameplateFontStrings = {};
 local animating = {};
 local playerGUID;
 
-local damageTypeColors = {
-    [SCHOOL_MASK_PHYSICAL] = "FFFF00",
-    [SCHOOL_MASK_HOLY] = "FFE680",
-    [SCHOOL_MASK_FIRE] = "FF8000",
-    [SCHOOL_MASK_NATURE] = "4DFF4D",
-    [SCHOOL_MASK_FROST] = "80FFFF",
-    [SCHOOL_MASK_SHADOW] = "8080FF",
-    [SCHOOL_MASK_ARCANE] = "FF80FF",
-};
-
-local missEventStrings = {
-    ["ABSORB"] = "Absorbed",
-    ["BLOCK"] = "Blocked",
-    ["DEFLECT"] = "Deflected",
-    ["DODGE"] = "Dodged",
-    ["EVADE"] = "Evaded",
-    ["IMMUNE"] = "Immune",
-    ["MISS"] = "Missed",
-    ["PARRY"] = "Parried",
-    ["REFLECT"] = "Reflected",
-    ["RESIST"] = "Resisted",
-};
-
 
 --------
 -- DB --
@@ -113,6 +90,29 @@ local ANIMATION_SHAKE_NUM_SHAKES = 4;
 
 local ANIMATION_LENGTH = 1;
 
+local DAMAGE_TYPE_COLORS = {
+    [SCHOOL_MASK_PHYSICAL] = "FFFF00",
+    [SCHOOL_MASK_HOLY] = "FFE680",
+    [SCHOOL_MASK_FIRE] = "FF8000",
+    [SCHOOL_MASK_NATURE] = "4DFF4D",
+    [SCHOOL_MASK_FROST] = "80FFFF",
+    [SCHOOL_MASK_SHADOW] = "8080FF",
+    [SCHOOL_MASK_ARCANE] = "FF80FF",
+};
+
+local MISS_EVENT_STRINGS = {
+    ["ABSORB"] = "Absorbed",
+    ["BLOCK"] = "Blocked",
+    ["DEFLECT"] = "Deflected",
+    ["DODGE"] = "Dodged",
+    ["EVADE"] = "Evaded",
+    ["IMMUNE"] = "Immune",
+    ["MISS"] = "Missed",
+    ["PARRY"] = "Parried",
+    ["REFLECT"] = "Reflected",
+    ["RESIST"] = "Resisted",
+};
+
 
 ----------------
 -- FONTSTRING --
@@ -166,8 +166,6 @@ local function recycleFontString(fontString)
 
     table.insert(fontStringCache, fontString);
 end
-
-
 
 
 ----------
@@ -284,7 +282,7 @@ local function AnimationOnUpdate()
                 fontString:SetAlpha(alpha);
 
                 -- position
-                local xOffset, yOffset;
+                local xOffset, yOffset = 0, 0;
                 if (fontString.animation == "verticalUp") then
                     xOffset, yOffset = verticalPath(elapsed, fontString.animatingDuration, fontString.distance);
                 elseif (fontString.animation == "verticalDown") then
@@ -292,8 +290,7 @@ local function AnimationOnUpdate()
                 elseif (fontString.animation == "fountain") then
                     xOffset, yOffset = arcPath(elapsed, fontString.animatingDuration, fontString.arcXDist, 0, fontString.arcTop, fontString.arcBottom);
                 elseif (fontString.animation == "shake") then
-                    xOffset = 0;
-                    yOffset = 0;
+                    -- TODO
                 end
 
                 fontString:SetPoint("CENTER", fontString.anchorFrame, "CENTER", xOffset, NameplateSCT.db.global.yOffset + yOffset);
@@ -454,8 +451,8 @@ function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
     end
 
     -- color text
-    if (self.db.global.damageColor and school and damageTypeColors[school]) then
-        text = "|Cff"..damageTypeColors[school]..text.."|r";
+    if (self.db.global.damageColor and school and DAMAGE_TYPE_COLORS[school]) then
+        text = "|Cff"..DAMAGE_TYPE_COLORS[school]..text.."|r";
     else
         text = "|Cff"..self.db.global.defaultColor..text.."|r";
     end
@@ -515,7 +512,7 @@ function NameplateSCT:MissEvent(unit, spellID, missType)
     animation = self.db.global.animations.miss;
     pow = true;
 
-    text = missEventStrings[missType] or "Missed";
+    text = MISS_EVENT_STRINGS[missType] or "Missed";
     text = "|Cff"..self.db.global.defaultColor..text.."|r";
 
     -- add icons
@@ -534,10 +531,6 @@ function NameplateSCT:MissEvent(unit, spellID, missType)
 
     self:DisplayText(unit, text, textWithoutIcons, size, animation, pow)
 end
-
--- function NameplateSCT:HealEvent(unit, spellID, amount, crit)
---     -- TODO
--- end
 
 function NameplateSCT:DisplayText(unit, text, textWithoutIcons, size, animation, pow)
     local fontString = getFontString();
@@ -653,9 +646,9 @@ local menu = {
             },
         },
 
-        appearence = {
+        appearance = {
             type = 'group',
-            name = "Appearence",
+            name = "Appearance",
             order = 20,
             inline = true,
             disabled = function() return not NameplateSCT.db.global.enabled; end;
@@ -751,7 +744,7 @@ local menu = {
 
                 useOffTarget = {
                     type = 'toggle',
-                    name = "Use Seperate Off-Target Text Appearence",
+                    name = "Use Seperate Off-Target Text Appearance",
                     desc = "",
                     get = function() return NameplateSCT.db.global.useOffTarget; end,
                     set = function(_, newValue) NameplateSCT.db.global.useOffTarget = newValue; end,
@@ -760,7 +753,7 @@ local menu = {
                 },
                 offTarget = {
                     type = 'group',
-                    name = "Off-Target Text Appearence",
+                    name = "Off-Target Text Appearance",
                     hidden = function() return not NameplateSCT.db.global.useOffTarget; end,
                     order = 101,
                     inline = true,
