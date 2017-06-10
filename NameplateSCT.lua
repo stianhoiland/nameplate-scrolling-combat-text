@@ -41,19 +41,22 @@ end
 local defaults = {
     global = {
         enabled = true,
-        damageColor = true,
-        defaultColor = "FFFFFF",
-        font = defaultFont,
         yOffset = 0,
+
+        font = defaultFont,
+        damageColor = true,
+        defaultColor = "ffff00",
 
         truncate = true,
         truncateLetter = true,
 
-        embiggenCrits = true,
-        embiggenCritsScale = 1.5,
+        sizing = {
+            crits = true,
+            critsScale = 1.5,
 
-        smallHitSizing = true,
-        smallHitScale = 0.66,
+            smallHits = true,
+            smallHitsScale = 0.66,
+        },
 
         animations = {
             normal = "fountain",
@@ -458,7 +461,7 @@ function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
     end
 
     -- shrink small hits
-    if (self.db.global.smallHitSizing) then
+    if (self.db.global.sizing.smallHits) then
         if (not lastDamageEventTime or (lastDamageEventTime + SMALL_HIT_EXPIRY_WINDOW < GetTime())) then
             numDamageEvents = 0;
             runningAverageDamageEvents = 0;
@@ -470,13 +473,13 @@ function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
 
         if ((not crit and amount < SMALL_HIT_MULTIPIER*runningAverageDamageEvents)
             or (crit and amount/2 < SMALL_HIT_MULTIPIER*runningAverageDamageEvents)) then
-            size = size * self.db.global.smallHitScale;
+            size = size * self.db.global.sizing.smallHitsScale;
         end
     end
 
     -- embiggen crit's size
-    if (self.db.global.embiggenCrits and crit) then
-        size = size * self.db.global.embiggenCritsScale;
+    if (self.db.global.sizing.crits and crit) then
+        size = size * self.db.global.sizing.critsScale;
     end
 
     self:DisplayText(unit, text, textWithoutIcons, size, animation, pow)
@@ -484,6 +487,7 @@ end
 
 function NameplateSCT:MissEvent(unit, spellID, missType)
     -- TODO
+    print("MissEvent", unit, spellID, missType);
 end
 
 -- function NameplateSCT:HealEvent(unit, spellID, amount, crit)
@@ -516,6 +520,14 @@ end
 -------------
 -- OPTIONS --
 -------------
+local function rgbToHex(r, g, b)
+    return string.format("%02x%02x%02x", math.floor(255 * r), math.floor(255 * g), math.floor(255 * b));
+end
+
+local function hexToRGB(hex)
+    return tonumber(hex:sub(1,2), 16)/255, tonumber(hex:sub(3,4), 16)/255, tonumber(hex:sub(5,6), 16)/255, 1;
+end
+
 local iconValues = {
     ["none"] = "No Icons",
     ["left"] = "Left Side",
@@ -603,6 +615,25 @@ local menu = {
                     get = function() return NameplateSCT.db.global.font; end,
                     set = function(_, newValue) NameplateSCT.db.global.font = newValue; end,
                 },
+
+                damageColor = {
+                    type = 'toggle',
+                    name = "Use Damage Type Color",
+                    desc = "",
+                    get = function() return NameplateSCT.db.global.damageColor; end,
+                    set = function(_, newValue) NameplateSCT.db.global.damageColor = newValue; end,
+                    order = 20,
+                },
+
+                defaultColor = {
+                    type = 'color',
+                    name = "Default Color",
+                    desc = "",
+                    hasAlpha = false,
+                    set = function(_, r, g, b) NameplateSCT.db.global.defaultColor = rgbToHex(r, g, b); end,
+                    get = function() return hexToRGB(NameplateSCT.db.global.defaultColor); end,
+                    order = 21,
+                },
             },
         },
 
@@ -629,14 +660,7 @@ local menu = {
                     get = function() return NameplateSCT.db.global.truncateLetter; end,
                     set = function(_, newValue) NameplateSCT.db.global.truncateLetter = newValue; end,
                     order = 2,
-                },
-                damageColor = {
-                    type = 'toggle',
-                    name = "Use Damage Type Color",
-                    desc = "",
-                    get = function() return NameplateSCT.db.global.damageColor; end,
-                    set = function(_, newValue) NameplateSCT.db.global.damageColor = newValue; end,
-                    order = 20,
+                    width = "double",
                 },
 
                 icon = {
@@ -730,46 +754,46 @@ local menu = {
             inline = true,
             disabled = function() return not NameplateSCT.db.global.enabled; end;
             args = {
-                embiggenCrits = {
+                crits = {
                     type = 'toggle',
                     name = "Embiggen Crits",
                     desc = "",
-                    get = function() return NameplateSCT.db.global.embiggenCrits; end,
-                    set = function(_, newValue) NameplateSCT.db.global.embiggenCrits = newValue; end,
+                    get = function() return NameplateSCT.db.global.sizing.crits; end,
+                    set = function(_, newValue) NameplateSCT.db.global.sizing.crits = newValue; end,
                     order = 1,
                 },
-                embiggenCritsScale = {
+                critsScale = {
                     type = 'range',
                     name = "Embiggen Crits Scale",
                     desc = "",
-                    disabled = function() return not NameplateSCT.db.global.enabled or not NameplateSCT.db.global.embiggenCrits; end,
+                    disabled = function() return not NameplateSCT.db.global.enabled or not NameplateSCT.db.global.sizing.crits; end,
                     min = 1,
                     max = 3,
                     step = .01,
-                    get = function() return NameplateSCT.db.global.embiggenCritsScale; end,
-                    set = function(_, newValue) NameplateSCT.db.global.embiggenCritsScale = newValue; end,
+                    get = function() return NameplateSCT.db.global.sizing.critsScale; end,
+                    set = function(_, newValue) NameplateSCT.db.global.sizing.critsScale = newValue; end,
                     order = 2,
                     width = "double",
                 },
 
-                smallHitSizing = {
+                smallHits = {
                     type = 'toggle',
                     name = "Scale Down Small Hits",
                     desc = "",
-                    get = function() return NameplateSCT.db.global.smallHitSizing; end,
-                    set = function(_, newValue) NameplateSCT.db.global.smallHitSizing = newValue; end,
+                    get = function() return NameplateSCT.db.global.sizing.smallHits; end,
+                    set = function(_, newValue) NameplateSCT.db.global.sizing.smallHits = newValue; end,
                     order = 10,
                 },
-                smallHitScale = {
+                smallHitsScale = {
                     type = 'range',
-                    name = "Embiggen Crits Scale",
+                    name = "Small Hits Scale",
                     desc = "",
-                    disabled = function() return not NameplateSCT.db.global.enabled or not NameplateSCT.db.global.smallHitScale; end,
+                    disabled = function() return not NameplateSCT.db.global.enabled or not NameplateSCT.db.global.sizing.smallHits; end,
                     min = 0.33,
                     max = 1,
                     step = .01,
-                    get = function() return NameplateSCT.db.global.smallHitScale; end,
-                    set = function(_, newValue) NameplateSCT.db.global.smallHitScale = newValue; end,
+                    get = function() return NameplateSCT.db.global.sizing.smallHitsScale; end,
+                    set = function(_, newValue) NameplateSCT.db.global.sizing.smallHitsScale = newValue; end,
                     order = 11,
                     width = "double",
                 },

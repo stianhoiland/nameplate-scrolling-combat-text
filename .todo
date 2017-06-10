@@ -20,8 +20,8 @@ NameplateSCT:
     Menu:
         ☐ Add missing options
             ✔ Disable blizzard fct @done (6/8/2017, 1:03:14 PM)
-            ☐ colorpicker in menu for default color
-            ☐ font
+            ✔ colorpicker in menu for default color @done (6/9/2017, 5:04:05 PM)
+            ✔ font @done (6/9/2017, 2:21:11 PM)
             ☐ offsets
             ✔ embiggen crits @done (6/8/2017, 12:28:20 PM)
             ✔ scale down smaller hits @done (6/8/2017, 12:28:21 PM)
