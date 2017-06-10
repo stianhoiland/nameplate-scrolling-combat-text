@@ -29,6 +29,19 @@ local damageTypeColors = {
     [SCHOOL_MASK_ARCANE] = "FF80FF",
 };
 
+local missEventStrings = {
+    ["ABSORB"] = "Absorbed",
+    ["BLOCK"] = "Blocked",
+    ["DEFLECT"] = "Deflected",
+    ["DODGE"] = "Dodged",
+    ["EVADE"] = "Evaded",
+    ["IMMUNE"] = "Immune",
+    ["MISS"] = "Missed",
+    ["PARRY"] = "Parried",
+    ["REFLECT"] = "Reflected",
+    ["RESIST"] = "Resisted",
+};
+
 
 --------
 -- DB --
@@ -61,6 +74,7 @@ local defaults = {
         animations = {
             normal = "fountain",
             crit = "verticalUp",
+            miss = "verticalUp",
         },
 
         formatting = {
@@ -482,12 +496,43 @@ function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
         size = size * self.db.global.sizing.critsScale;
     end
 
-    self:DisplayText(unit, text, textWithoutIcons, size, animation, pow)
+    self:DisplayText(unit, text, textWithoutIcons, size, animation, pow);
 end
 
 function NameplateSCT:MissEvent(unit, spellID, missType)
-    -- TODO
-    print("MissEvent", unit, spellID, missType);
+    local text, animation, pow, size, icon, alpha;
+
+    if (self.db.global.useOffTarget and not UnitIsUnit(unit, "target")) then
+        size = self.db.global.offTargetFormatting.size;
+        icon = self.db.global.offTargetFormatting.icon;
+        alpha = self.db.global.offTargetFormatting.alpha;
+    else
+        size = self.db.global.formatting.size;
+        icon = self.db.global.formatting.icon;
+        alpha = self.db.global.formatting.alpha;
+    end
+
+    animation = self.db.global.animations.miss;
+    pow = true;
+
+    text = missEventStrings[missType] or "Missed";
+    text = "|Cff"..self.db.global.defaultColor..text.."|r";
+
+    -- add icons
+    local textWithoutIcons = text;
+    if (icon ~= "none" and spellID) then
+        local iconText = "|T"..GetSpellTexture(spellID)..":0|t";
+
+        if (icon == "both") then
+            text = iconText..text..iconText;
+        elseif (icon == "left") then
+            text = iconText..text;
+        elseif (icon == "right") then
+            text = text..iconText;
+        end
+    end
+
+    self:DisplayText(unit, text, textWithoutIcons, size, animation, pow)
 end
 
 -- function NameplateSCT:HealEvent(unit, spellID, amount, crit)
@@ -595,6 +640,15 @@ local menu = {
                     set = function(_, newValue) NameplateSCT.db.global.animations.crit = newValue; end,
                     values = animationValues,
                     order = 2,
+                },
+                miss = {
+                    type = 'select',
+                    name = "Miss/Parry/Dodge/etc",
+                    desc = "",
+                    get = function() return NameplateSCT.db.global.animations.miss; end,
+                    set = function(_, newValue) NameplateSCT.db.global.animations.miss = newValue; end,
+                    values = animationValues,
+                    order = 3,
                 },
             },
         },
