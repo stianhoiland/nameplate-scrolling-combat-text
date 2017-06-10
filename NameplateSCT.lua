@@ -609,6 +609,18 @@ local menu = {
             order = 2,
         },
 
+        yOffset = {
+            type = 'range',
+            name = "Y Offset",
+            desc = "",
+            min = -75,
+            max = 75,
+            step = 1,
+            get = function() return NameplateSCT.db.global.yOffset; end,
+            set = function(_, newValue) NameplateSCT.db.global.yOffset = newValue; end,
+            order = 3,
+        },
+
         animations = {
             type = 'group',
             name = "Animations",
