@@ -39,6 +39,7 @@ local defaults = {
 
         truncate = true,
         truncateLetter = true,
+        commaSeperate = true,
 
         sizing = {
             crits = true,
@@ -412,6 +413,13 @@ end
 -------------
 -- DISPLAY --
 -------------
+local function commaSeperate(number)
+    -- https://stackoverflow.com/questions/10989788/lua-format-integer
+    local i, j, minus, int, fraction = tostring(number):find('([-]?)(%d+)([.]?%d*)');
+    int = int:reverse():gsub("(%d%d%d)", "%1,");
+    return minus..int:reverse():gsub("^,", "")..fraction;
+end
+
 local numDamageEvents = 0;
 local lastDamageEventTime;
 local runningAverageDamageEvents = 0;
@@ -447,7 +455,11 @@ function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
             text = text.."k";
         end
     else
-        text = tostring(amount);
+        if (self.db.global.commaSeperate) then
+            text = commaSeperate(amount);
+        else
+            text = tostring(amount);
+        end
     end
 
     -- color text
@@ -719,7 +731,15 @@ local menu = {
                     get = function() return NameplateSCT.db.global.truncateLetter; end,
                     set = function(_, newValue) NameplateSCT.db.global.truncateLetter = newValue; end,
                     order = 2,
-                    width = "double",
+                },
+                commaSeperate = {
+                    type = 'toggle',
+                    name = "Comma Seperate",
+                    desc = "100000 -> 100,000",
+                    disabled = function() return not NameplateSCT.db.global.enabled or NameplateSCT.db.global.truncate; end,
+                    get = function() return NameplateSCT.db.global.commaSeperate; end,
+                    set = function(_, newValue) NameplateSCT.db.global.commaSeperate = newValue; end,
+                    order = 3,
                 },
 
                 icon = {

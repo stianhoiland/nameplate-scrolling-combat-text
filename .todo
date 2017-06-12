@@ -17,7 +17,9 @@ NameplateSCT:
             ☐ offsets
     Misc:
         ☐ Be able to specify in-front/behind nameplates
+        ☐ Make sure that crits have a higher strata than non-crits
         ☐ Specify format string? Be able to have no numbers
         ☐ Merge damage events
-        ☐ Minimum damage/healing
-        ☐ Swap to profiles
+        ☐ Minimum damage
+        ☐ Add comma seperator
+        ☐ Max number of texts
