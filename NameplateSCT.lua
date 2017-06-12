@@ -31,6 +31,7 @@ end
 local defaults = {
     global = {
         enabled = true,
+        xOffset = 0,
         yOffset = 0,
 
         font = defaultFont,
@@ -165,6 +166,12 @@ local function recycleFontString(fontString)
     fontString.animatingStartTime = nil;
     fontString.anchorFrame = nil;
 
+    fontString.unit = nil;
+    fontString.pow = nil;
+    fontString.startHeight = nil;
+    fontString.NSCTFontSize = nil;
+    fontString:SetFont(getFontPath(NameplateSCT.db.global.font), 15, "OUTLINE");
+
     table.insert(fontStringCache, fontString);
 end
 
@@ -256,11 +263,13 @@ local function arcPath(elapsed, duration, xDist, yStart, yTop, yBottom)
 end
 
 local function powSizing(elapsed, duration, start, middle, finish)
-    local size;
-    if (elapsed/duration < 0.5) then
-        size = LibEasing.OutQuint(elapsed, start, middle - start, duration/2)
-    else
-        size = LibEasing.InQuint(elapsed - elapsed/2, middle, finish - middle, duration/2)
+    local size = finish;
+    if (elapsed < duration) then
+        if (elapsed/duration < 0.5) then
+            size = LibEasing.OutQuint(elapsed, start, middle - start, duration/2);
+        else
+            size = LibEasing.InQuint(elapsed - elapsed/2, middle, finish - middle, duration/2);
+        end
     end
     return size;
 end
@@ -294,7 +303,7 @@ local function AnimationOnUpdate()
                     -- TODO
                 end
 
-                fontString:SetPoint("CENTER", fontString.anchorFrame, "CENTER", xOffset, NameplateSCT.db.global.yOffset + yOffset);
+                fontString:SetPoint("CENTER", fontString.anchorFrame, "CENTER", NameplateSCT.db.global.xOffset + xOffset, NameplateSCT.db.global.yOffset + yOffset);
 
                 -- sizing
                 if (fontString.pow) then
@@ -305,6 +314,7 @@ local function AnimationOnUpdate()
                         fontString:SetTextHeight(size);
                     else
                         fontString.pow = nil;
+                        fontString:SetTextHeight(fontString.startHeight);
                         fontString:SetFont(getFontPath(NameplateSCT.db.global.font), fontString.NSCTFontSize, "OUTLINE");
                         fontString:SetText(fontString.NSCTText);
                     end
@@ -415,7 +425,7 @@ end
 -------------
 local function commaSeperate(number)
     -- https://stackoverflow.com/questions/10989788/lua-format-integer
-    local i, j, minus, int, fraction = tostring(number):find('([-]?)(%d+)([.]?%d*)');
+    local _, _, minus, int, fraction = tostring(number):find('([-]?)(%d+)([.]?%d*)');
     int = int:reverse():gsub("(%d%d%d)", "%1,");
     return minus..int:reverse():gsub("^,", "")..fraction;
 end
@@ -604,6 +614,7 @@ local menu = {
             get = "IsEnabled",
             set = function(_, newValue) if (not newValue) then NameplateSCT:Disable(); else NameplateSCT:Enable(); end end,
             order = 1,
+            width = "half",
         },
 
         disableBlizzardFCT = {
@@ -621,22 +632,10 @@ local menu = {
             order = 2,
         },
 
-        yOffset = {
-            type = 'range',
-            name = "Y Offset",
-            desc = "",
-            min = -75,
-            max = 75,
-            step = 1,
-            get = function() return NameplateSCT.db.global.yOffset; end,
-            set = function(_, newValue) NameplateSCT.db.global.yOffset = newValue; end,
-            order = 3,
-        },
-
         animations = {
             type = 'group',
             name = "Animations",
-            order = 10,
+            order = 30,
             inline = true,
             disabled = function() return not NameplateSCT.db.global.enabled; end;
             args = {
@@ -672,8 +671,8 @@ local menu = {
 
         appearance = {
             type = 'group',
-            name = "Appearance",
-            order = 20,
+            name = "Appearance/Offsets",
+            order = 50,
             inline = true,
             disabled = function() return not NameplateSCT.db.global.enabled; end;
             args = {
@@ -693,7 +692,7 @@ local menu = {
                     desc = "",
                     get = function() return NameplateSCT.db.global.damageColor; end,
                     set = function(_, newValue) NameplateSCT.db.global.damageColor = newValue; end,
-                    order = 20,
+                    order = 2,
                 },
 
                 defaultColor = {
@@ -703,7 +702,33 @@ local menu = {
                     hasAlpha = false,
                     set = function(_, r, g, b) NameplateSCT.db.global.defaultColor = rgbToHex(r, g, b); end,
                     get = function() return hexToRGB(NameplateSCT.db.global.defaultColor); end,
-                    order = 21,
+                    order = 3,
+                },
+
+                xOffset = {
+                    type = 'range',
+                    name = "X Offset",
+                    desc = "Has soft max/min, you can type whatever you'd like into the editbox",
+                    softMin = -75,
+                    softMax = 75,
+                    step = 1,
+                    get = function() return NameplateSCT.db.global.xOffset; end,
+                    set = function(_, newValue) NameplateSCT.db.global.xOffset = newValue; end,
+                    order = 10,
+                    width = "full",
+                },
+
+                yOffset = {
+                    type = 'range',
+                    name = "Y Offset",
+                    desc = "Has soft max/min, you can type whatever you'd like into the editbox",
+                    softMin = -75,
+                    softMax = 75,
+                    step = 1,
+                    get = function() return NameplateSCT.db.global.yOffset; end,
+                    set = function(_, newValue) NameplateSCT.db.global.yOffset = newValue; end,
+                    order = 11,
+                    width = "full",
                 },
             },
         },
@@ -878,7 +903,6 @@ local menu = {
                 },
             },
         },
-
     },
 };
 
