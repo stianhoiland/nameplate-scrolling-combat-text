@@ -13,11 +13,15 @@ NameplateSCT.frame = CreateFrame("Frame", "NameplateSCT.frame", UIParent);
 -- LOCALS --
 ------------
 local _;
+local animating = {};
+
+local guidNameplatePositionX = {}; -- why two tables? Because creating tables creates garbage, at least that's the idea
+local guidNameplatePositionY = {};
+
+local playerGUID;
 local unitToGuid = {};
 local guidToUnit = {};
-local nameplateFontStrings = {};
-local animating = {};
-local playerGUID;
+
 
 
 --------
@@ -152,7 +156,6 @@ local function recycleFontString(fontString)
     fontString:SetAlpha(0);
     fontString:Hide();
 
-    nameplateFontStrings[fontString.unit][fontString] = nil;
     animating[fontString] = nil;
 
     fontString.distance = nil;
@@ -167,12 +170,47 @@ local function recycleFontString(fontString)
     fontString.anchorFrame = nil;
 
     fontString.unit = nil;
+    fontString.guid = nil;
+
     fontString.pow = nil;
     fontString.startHeight = nil;
     fontString.NSCTFontSize = nil;
     fontString:SetFont(getFontPath(NameplateSCT.db.global.font), 15, "OUTLINE");
 
     table.insert(fontStringCache, fontString);
+end
+
+
+----------------
+-- NAMEPLATES --
+----------------
+local nameplatePositionTicker;
+local function saveNameplatePositions_Awful()
+    -- look, this isn't a good way of doing this, but it's quick and easy and I don't
+    -- understand why GetCenter of the nameplate isn't actually where it is and why I can't
+    -- figure out how to scale it properly with GetEffectiveScale or whatever
+    local fontString = getFontString();
+
+    for unit, guid in pairs(unitToGuid) do
+        local nameplate = C_NamePlate.GetNamePlateForUnit(unit);
+        if (nameplate and not UnitIsDead(unit) and nameplate:IsShown()) then
+            fontString:SetPoint("CENTER", nameplate, "CENTER", 0, 0);
+            guidNameplatePositionX[guid], guidNameplatePositionY[guid] = fontString:GetCenter();
+        end
+    end
+
+    recycleFontString(fontString);
+end
+
+local function startSavingNameplatePositions()
+    if (not nameplatePositionTicker) then
+        nameplatePositionTicker =  C_Timer.NewTicker(1/10, saveNameplatePositions_Awful);
+    end
+end
+
+local function stopSavingNameplatePositions()
+    nameplatePositionTicker:Cancel();
+    nameplatePositionTicker = nil;
 end
 
 
@@ -278,8 +316,8 @@ local function AnimationOnUpdate()
     if (next(animating)) then
         for fontString, _ in pairs(animating) do
             local elapsed = GetTime() - fontString.animatingStartTime;
-            if (elapsed > fontString.animatingDuration or UnitIsDead(fontString.unit) or not fontString.anchorFrame or not fontString.anchorFrame:IsShown()) then
-                -- the animation is over or the unit it was attached to is dead
+            if (elapsed > fontString.animatingDuration) then
+                -- the animation is over
                 recycleFontString(fontString);
             else
                 -- alpha
@@ -290,20 +328,6 @@ local function AnimationOnUpdate()
 
                 local alpha = LibEasing.InExpo(elapsed, startAlpha, -startAlpha, fontString.animatingDuration);
                 fontString:SetAlpha(alpha);
-
-                -- position
-                local xOffset, yOffset = 0, 0;
-                if (fontString.animation == "verticalUp") then
-                    xOffset, yOffset = verticalPath(elapsed, fontString.animatingDuration, fontString.distance);
-                elseif (fontString.animation == "verticalDown") then
-                    xOffset, yOffset = verticalPath(elapsed, fontString.animatingDuration, -fontString.distance);
-                elseif (fontString.animation == "fountain") then
-                    xOffset, yOffset = arcPath(elapsed, fontString.animatingDuration, fontString.arcXDist, 0, fontString.arcTop, fontString.arcBottom);
-                elseif (fontString.animation == "shake") then
-                    -- TODO
-                end
-
-                fontString:SetPoint("CENTER", fontString.anchorFrame, "CENTER", NameplateSCT.db.global.xOffset + xOffset, NameplateSCT.db.global.yOffset + yOffset);
 
                 -- sizing
                 if (fontString.pow) then
@@ -318,6 +342,33 @@ local function AnimationOnUpdate()
                         fontString:SetFont(getFontPath(NameplateSCT.db.global.font), fontString.NSCTFontSize, "OUTLINE");
                         fontString:SetText(fontString.NSCTText);
                     end
+                end
+
+                -- position
+                local xOffset, yOffset = 0, 0;
+                if (fontString.animation == "verticalUp") then
+                    xOffset, yOffset = verticalPath(elapsed, fontString.animatingDuration, fontString.distance);
+                elseif (fontString.animation == "verticalDown") then
+                    xOffset, yOffset = verticalPath(elapsed, fontString.animatingDuration, -fontString.distance);
+                elseif (fontString.animation == "fountain") then
+                    xOffset, yOffset = arcPath(elapsed, fontString.animatingDuration, fontString.arcXDist, 0, fontString.arcTop, fontString.arcBottom);
+                elseif (fontString.animation == "shake") then
+                    -- TODO
+                end
+
+                if (not UnitIsDead(fontString.unit) and fontString.anchorFrame and fontString.anchorFrame:IsShown()) then
+                    fontString:SetPoint("CENTER", fontString.anchorFrame, "CENTER", NameplateSCT.db.global.xOffset + xOffset, NameplateSCT.db.global.yOffset + yOffset);
+
+                    -- remember the last position of the nameplate
+                    local x, y = fontString:GetCenter();
+                    guidNameplatePositionX[fontString.guid] = x - (NameplateSCT.db.global.xOffset + xOffset);
+                    guidNameplatePositionY[fontString.guid] = y - (NameplateSCT.db.global.yOffset + yOffset);
+                elseif (guidNameplatePositionX[fontString.guid] and guidNameplatePositionY[fontString.guid]) then
+                    fontString.anchorFrame = nil;
+                    fontString:ClearAllPoints();
+                    fontString:SetPoint("CENTER", UIParent, "BOTTOMLEFT", guidNameplatePositionX[fontString.guid] + NameplateSCT.db.global.xOffset + xOffset, guidNameplatePositionY[fontString.guid] + NameplateSCT.db.global.yOffset + yOffset);
+                else
+                    recycleFontString(fontString);
                 end
             end
         end
@@ -362,12 +413,30 @@ end
 ------------
 -- EVENTS --
 ------------
+local guidDeletion = {};
+local function scheduleGUIDNameplatePositionWipe(guid)
+    local deleteGUIDLocation = function()
+        guidNameplatePositionX[guid] = nil;
+        guidNameplatePositionY[guid] = nil;
+    end
+
+    guidDeletion[guid] = C_Timer.NewTimer(1, deleteGUIDLocation);
+end
+
 function NameplateSCT:NAME_PLATE_UNIT_ADDED(event, unitID)
     local guid = UnitGUID(unitID);
 
     unitToGuid[unitID] = guid;
     guidToUnit[guid] = unitID;
-    nameplateFontStrings[unitID] = {};
+
+    if (guidDeletion[guid]) then
+        guidDeletion[guid]:Cancel();
+    end
+
+    guidNameplatePositionX[guid] = nil;
+    guidNameplatePositionY[guid] = nil;
+
+    startSavingNameplatePositions();
 end
 
 function NameplateSCT:NAME_PLATE_UNIT_REMOVED(event, unitID)
@@ -376,11 +445,12 @@ function NameplateSCT:NAME_PLATE_UNIT_REMOVED(event, unitID)
     unitToGuid[unitID] = nil;
     guidToUnit[guid] = nil;
 
-    for fontString, _ in pairs(nameplateFontStrings[unitID]) do
-        recycleFontString(fontString);
-    end
+    scheduleGUIDNameplatePositionWipe(guid);
 
-    nameplateFontStrings[unitID] = nil;
+    -- stop saving positions if there are no nameplates
+    if (not next(guidToUnit)) then
+        stopSavingNameplatePositions();
+    end
 end
 
 function NameplateSCT:COMBAT_LOG_EVENT_UNFILTERED(event, time, cle, hideCaster, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, ...)
@@ -399,7 +469,7 @@ function NameplateSCT:COMBAT_LOG_EVENT_UNFILTERED(event, time, cle, hideCaster, 
                     spellID, spellName, spellSchool, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand = ...;
                 end
 
-                self:DamageEvent(destUnit, spellID, amount, school, critical);
+                self:DamageEvent(destGUID, spellID, amount, school, critical);
             elseif(string.find(cle, "_MISSED")) then
                 local spellID, spellName, spellSchool, missType, isOffHand, amountMissed;
 
@@ -433,10 +503,10 @@ end
 local numDamageEvents = 0;
 local lastDamageEventTime;
 local runningAverageDamageEvents = 0;
-function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
+function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
     local text, animation, pow, size, icon, alpha;
 
-    if (self.db.global.useOffTarget and not UnitIsUnit(unit, "target")) then
+    if (self.db.global.useOffTarget and (not UnitGUID("target") == guid)) then
         size = self.db.global.offTargetFormatting.size;
         icon = self.db.global.offTargetFormatting.icon;
         alpha = self.db.global.offTargetFormatting.alpha;
@@ -515,13 +585,18 @@ function NameplateSCT:DamageEvent(unit, spellID, amount, school, crit)
         size = size * self.db.global.sizing.critsScale;
     end
 
-    self:DisplayText(unit, text, textWithoutIcons, size, animation, pow);
+    -- make sure that size is larger than 5
+    if (size < 5) then
+        size = 5;
+    end
+
+    self:DisplayText(guid, text, textWithoutIcons, size, animation, pow);
 end
 
-function NameplateSCT:MissEvent(unit, spellID, missType)
+function NameplateSCT:MissEvent(guid, spellID, missType)
     local text, animation, pow, size, icon, alpha;
 
-    if (self.db.global.useOffTarget and not UnitIsUnit(unit, "target")) then
+    if (self.db.global.useOffTarget and (not UnitGUID("target") == guid)) then
         size = self.db.global.offTargetFormatting.size;
         icon = self.db.global.offTargetFormatting.icon;
         alpha = self.db.global.offTargetFormatting.alpha;
@@ -551,29 +626,43 @@ function NameplateSCT:MissEvent(unit, spellID, missType)
         end
     end
 
-    self:DisplayText(unit, text, textWithoutIcons, size, animation, pow)
+    self:DisplayText(guid, text, textWithoutIcons, size, animation, pow)
 end
 
-function NameplateSCT:DisplayText(unit, text, textWithoutIcons, size, animation, pow)
-    local fontString = getFontString();
-    local nameplate = C_NamePlate.GetNamePlateForUnit(unit);
+function NameplateSCT:DisplayText(guid, text, textWithoutIcons, size, animation, pow)
+    local fontString;
+    local unit = guidToUnit[guid];
+    local nameplate;
 
-    if (nameplate) then
-        fontString.NSCTText = text;
-        fontString.NSCTTextWithoutIcons = textWithoutIcons;
-        fontString:SetText(fontString.NSCTText);
-
-        fontString.NSCTFontSize = size;
-        fontString:SetFont(getFontPath(NameplateSCT.db.global.font), fontString.NSCTFontSize, "OUTLINE");
-        fontString.startHeight = fontString:GetStringHeight();
-        fontString.pow = pow;
-
-        fontString.unit = unit;
-        nameplateFontStrings[unit][fontString] = true;
-
-        -- animate the new fontString
-        self:Animate(fontString, nameplate, ANIMATION_LENGTH, animation);
+    if (unit) then
+        nameplate = C_NamePlate.GetNamePlateForUnit(unit);
     end
+
+    -- if there isn't an anchor frame, make sure that there is a guidNameplatePosition cache entry
+    if (not nameplate and not (guidNameplatePositionX[guid] and guidNameplatePositionY[guid])) then
+        return;
+    end
+
+    fontString = getFontString();
+
+    fontString.NSCTText = text;
+    fontString.NSCTTextWithoutIcons = textWithoutIcons;
+    fontString:SetText(fontString.NSCTText);
+
+    fontString.NSCTFontSize = size;
+    fontString:SetFont(getFontPath(NameplateSCT.db.global.font), fontString.NSCTFontSize, "OUTLINE");
+    fontString.startHeight = fontString:GetStringHeight();
+    fontString.pow = pow;
+
+    if (fontString.startHeight <= 0) then
+        fontString.startHeight = 5;
+    end
+
+    fontString.unit = unit;
+    fontString.guid = guid;
+
+    -- if there is no nameplate,
+    self:Animate(fontString, nameplate, ANIMATION_LENGTH, animation);
 end
 
 
