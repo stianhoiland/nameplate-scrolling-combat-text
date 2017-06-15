@@ -6,7 +6,7 @@ local LibEasing = LibStub("LibEasing-1.0");
 local SharedMedia = LibStub("LibSharedMedia-3.0");
 
 NameplateSCT = AceAddon:NewAddon("NameplateSCT", "AceConsole-3.0", "AceEvent-3.0");
-NameplateSCT.frame = CreateFrame("Frame", "NameplateSCT.frame", UIParent);
+NameplateSCT.frame = CreateFrame("Frame", nil, UIParent);
 
 
 ------------
@@ -15,13 +15,19 @@ NameplateSCT.frame = CreateFrame("Frame", "NameplateSCT.frame", UIParent);
 local _;
 local animating = {};
 
-local guidNameplatePositionX = {}; -- why two tables? Because creating tables creates garbage, at least that's the idea
-local guidNameplatePositionY = {};
-
 local playerGUID;
 local unitToGuid = {};
 local guidToUnit = {};
 
+local targetFrames = {};
+for level = 1, 3 do
+    targetFrames[level] = CreateFrame("Frame", nil, UIParent);
+end
+
+local offTargetFrames = {};
+for level = 1, 3 do
+    offTargetFrames[level] = CreateFrame("Frame", nil, UIParent);
+end
 
 
 --------
@@ -119,6 +125,10 @@ local MISS_EVENT_STRINGS = {
     ["RESIST"] = "Resisted",
 };
 
+local FRAME_LEVEL_OVERLAY = 3;
+local FRAME_LEVEL_ABOVE = 2;
+local FRAME_LEVEL_BELOW = 1;
+
 
 ----------------
 -- FONTSTRING --
@@ -143,6 +153,7 @@ local function getFontString()
         fontString = NameplateSCT.frame:CreateFontString();
     end
 
+    fontString:SetParent(NameplateSCT.frame);
     fontString:SetFont(getFontPath(NameplateSCT.db.global.font), 15, "OUTLINE");
     fontString:SetAlpha(1);
     fontString:SetDrawLayer("OVERLAY");
@@ -177,6 +188,8 @@ local function recycleFontString(fontString)
     fontString.NSCTFontSize = nil;
     fontString:SetFont(getFontPath(NameplateSCT.db.global.font), 15, "OUTLINE");
 
+    fontString:SetParent(NameplateSCT.frame);
+
     table.insert(fontStringCache, fontString);
 end
 
@@ -185,6 +198,8 @@ end
 -- NAMEPLATES --
 ----------------
 local nameplatePositionTicker;
+local guidNameplatePositionX = {}; -- why two tables? Because creating tables creates garbage, at least that's the idea
+local guidNameplatePositionY = {};
 local function saveNameplatePositions_Awful()
     -- look, this isn't a good way of doing this, but it's quick and easy and I don't
     -- understand why GetCenter of the nameplate isn't actually where it is and why I can't
@@ -213,6 +228,87 @@ local function stopSavingNameplatePositions()
     nameplatePositionTicker = nil;
 end
 
+-- NameplateSCT.SaveNameplatePositions_Awful = saveNameplatePositions_Awful;
+
+--[[ this should work for reasonable nameplate systems, but doesn't work with a bunch of them -.-
+local function setNameplateFrameLevels()
+    local targetStrata;
+    local offTargetStrata;
+    local targetFrameLevel;
+    local offTargetFrameLevelLow;
+    local offTargetFrameLevelHigh;
+
+    -- get strata/framelevels for target and max for offtargets
+    for unit, guid in pairs(unitToGuid) do
+        local nameplate = C_NamePlate.GetNamePlateForUnit(unit);
+        if (nameplate and not UnitIsDead(unit) and nameplate:IsShown()) then
+            local nameplateFrame = _G[nameplate:GetName().."UnitFrame"];
+
+            if (nameplateFrame) then
+                if (UnitIsUnit("target", unit)) then
+                    targetStrata = nameplateFrame:GetFrameStrata();
+                    targetFrameLevel = nameplateFrame:GetFrameLevel();
+                else
+                    offTargetStrata = nameplateFrame:GetFrameStrata();
+
+                    local frameLevel = nameplateFrame:GetFrameLevel();
+                    if (not offTargetFrameLevelHigh or offTargetFrameLevelHigh < frameLevel) then
+                        offTargetFrameLevelHigh = frameLevel;
+                    end
+
+                    if (not offTargetFrameLevelLow or offTargetFrameLevelLow < frameLevel) then
+                        offTargetFrameLevelLow = frameLevel;
+                    end
+                end
+            end
+        end
+    end
+
+    if (targetStrata and targetFrameLevel) then
+        local lowFrameLevel = targetFrameLevel - 1;
+        if (lowFrameLevel < 0) then
+            lowFrameLevel = 0;
+        end
+
+        for _, frame in pairs(targetFrames) do
+            frame:SetFrameStrata(targetStrata);
+        end
+        targetFrames[FRAME_LEVEL_OVERLAY]:SetFrameLevel(targetFrameLevel + 4);
+        targetFrames[FRAME_LEVEL_ABOVE]:SetFrameLevel(targetFrameLevel + 3);
+        targetFrames[FRAME_LEVEL_BELOW]:SetFrameLevel(lowFrameLevel);
+    end
+
+    if (offTargetStrata and offTargetFrameLevelHigh and offTargetFrameLevelLow) then
+        local lowFrameLevel = offTargetFrameLevelLow - 2;
+        if (lowFrameLevel < 0) then
+            lowFrameLevel = 0;
+        end
+
+        for _, frame in pairs(offTargetFrames) do
+            frame:SetFrameStrata(offTargetStrata);
+        end
+        offTargetFrames[FRAME_LEVEL_OVERLAY]:SetFrameLevel(offTargetFrameLevelHigh + 2);
+        offTargetFrames[FRAME_LEVEL_ABOVE]:SetFrameLevel(offTargetFrameLevelHigh + 1);
+        offTargetFrames[FRAME_LEVEL_BELOW]:SetFrameLevel(lowFrameLevel);
+    end
+end
+]]--
+
+local function setNameplateFrameLevels()
+    for _, frame in pairs(targetFrames) do
+        frame:SetFrameStrata("LOW");
+    end
+    targetFrames[FRAME_LEVEL_OVERLAY]:SetFrameLevel(1001);
+    targetFrames[FRAME_LEVEL_ABOVE]:SetFrameLevel(1000);
+    targetFrames[FRAME_LEVEL_BELOW]:SetFrameLevel(999);
+
+    for _, frame in pairs(offTargetFrames) do
+        frame:SetFrameStrata("LOW");
+    end
+    offTargetFrames[FRAME_LEVEL_OVERLAY]:SetFrameLevel(901);
+    offTargetFrames[FRAME_LEVEL_ABOVE]:SetFrameLevel(900);
+    offTargetFrames[FRAME_LEVEL_BELOW]:SetFrameLevel(899);
+end
 
 ----------
 -- CORE --
@@ -226,6 +322,8 @@ function NameplateSCT:OnInitialize()
 
     -- setup menu
     self:RegisterMenu();
+
+    setNameplateFrameLevels();
 
     -- if the addon is turned off in db, turn it off
     if (self.db.global.enabled == false) then
@@ -314,15 +412,32 @@ end
 
 local function AnimationOnUpdate()
     if (next(animating)) then
+        -- setNameplateFrameLevels();
+
         for fontString, _ in pairs(animating) do
             local elapsed = GetTime() - fontString.animatingStartTime;
             if (elapsed > fontString.animatingDuration) then
                 -- the animation is over
                 recycleFontString(fontString);
             else
+                local isTarget = UnitIsUnit(fontString.unit, "target");
+
+                -- frame level
+                if (fontString.frameLevel) then
+                    if (isTarget) then
+                        if (fontString:GetParent() ~= targetFrames[fontString.frameLevel]) then
+                            fontString:SetParent(targetFrames[fontString.frameLevel])
+                        end
+                    else
+                        if (fontString:GetParent() ~= offTargetFrames[fontString.frameLevel]) then
+                            fontString:SetParent(offTargetFrames[fontString.frameLevel])
+                        end
+                    end
+                end
+
                 -- alpha
                 local startAlpha = NameplateSCT.db.global.formatting.alpha;
-                if (NameplateSCT.db.global.useOffTarget and not UnitIsUnit(fontString.unit, "target")) then
+                if (NameplateSCT.db.global.useOffTarget and not isTarget) then
                     startAlpha = NameplateSCT.db.global.offTargetFormatting.alpha;
                 end
 
@@ -352,7 +467,7 @@ local function AnimationOnUpdate()
                     xOffset, yOffset = verticalPath(elapsed, fontString.animatingDuration, -fontString.distance);
                 elseif (fontString.animation == "fountain") then
                     xOffset, yOffset = arcPath(elapsed, fontString.animatingDuration, fontString.arcXDist, 0, fontString.arcTop, fontString.arcBottom);
-                elseif (fontString.animation == "shake") then
+                -- elseif (fontString.animation == "shake") then
                     -- TODO
                 end
 
@@ -377,6 +492,8 @@ local function AnimationOnUpdate()
         NameplateSCT.frame:SetScript("OnUpdate", nil);
     end
 end
+
+-- NameplateSCT.AnimationOnUpdate = AnimationOnUpdate;
 
 local arcDirection = 1;
 function NameplateSCT:Animate(fontString, anchorFrame, duration, animation)
@@ -404,6 +521,7 @@ function NameplateSCT:Animate(fontString, anchorFrame, duration, animation)
 
     animating[fontString] = true;
 
+    -- start onupdate if it's not already running
     if (NameplateSCT.frame:GetScript("OnUpdate") == nil) then
         NameplateSCT.frame:SetScript("OnUpdate", AnimationOnUpdate);
     end
@@ -505,6 +623,7 @@ local lastDamageEventTime;
 local runningAverageDamageEvents = 0;
 function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
     local text, animation, pow, size, icon, alpha;
+    local frameLevel = FRAME_LEVEL_ABOVE;
 
     if (self.db.global.useOffTarget and (not UnitGUID("target") == guid)) then
         size = self.db.global.offTargetFormatting.size;
@@ -518,6 +637,7 @@ function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
 
     -- select an animation
     if (crit) then
+        frameLevel = FRAME_LEVEL_OVERLAY;
         animation = self.db.global.animations.crit;
         pow = true;
     else
@@ -590,7 +710,7 @@ function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
         size = 5;
     end
 
-    self:DisplayText(guid, text, textWithoutIcons, size, animation, pow);
+    self:DisplayText(guid, text, textWithoutIcons, size, animation, frameLevel, pow);
 end
 
 function NameplateSCT:MissEvent(guid, spellID, missType)
@@ -626,10 +746,10 @@ function NameplateSCT:MissEvent(guid, spellID, missType)
         end
     end
 
-    self:DisplayText(guid, text, textWithoutIcons, size, animation, pow)
+    self:DisplayText(guid, text, textWithoutIcons, size, animation, FRAME_LEVEL_ABOVE, pow)
 end
 
-function NameplateSCT:DisplayText(guid, text, textWithoutIcons, size, animation, pow)
+function NameplateSCT:DisplayText(guid, text, textWithoutIcons, size, animation, frameLevel, pow)
     local fontString;
     local unit = guidToUnit[guid];
     local nameplate;
@@ -653,6 +773,7 @@ function NameplateSCT:DisplayText(guid, text, textWithoutIcons, size, animation,
     fontString:SetFont(getFontPath(NameplateSCT.db.global.font), fontString.NSCTFontSize, "OUTLINE");
     fontString.startHeight = fontString:GetStringHeight();
     fontString.pow = pow;
+    fontString.frameLevel = frameLevel;
 
     if (fontString.startHeight <= 0) then
         fontString.startHeight = 5;
