@@ -97,8 +97,14 @@ local ANIMATION_ARC_Y_TOP_MAX = 50;
 local ANIMATION_ARC_Y_BOTTOM_MIN = 10;
 local ANIMATION_ARC_Y_BOTTOM_MAX = 50;
 
-local ANIMATION_SHAKE_DEFLECTION = 15;
-local ANIMATION_SHAKE_NUM_SHAKES = 4;
+-- local ANIMATION_SHAKE_DEFLECTION = 15;
+-- local ANIMATION_SHAKE_NUM_SHAKES = 4;
+
+local ANIMATION_RAINFALL_X_MAX = 75;
+local ANIMATION_RAINFALL_Y_MIN = 50;
+local ANIMATION_RAINFALL_Y_MAX = 100;
+local ANIMATION_RAINFALL_Y_START_MIN = 5
+local ANIMATION_RAINFALL_Y_START_MAX = 15;
 
 local ANIMATION_LENGTH = 1;
 
@@ -467,6 +473,10 @@ local function AnimationOnUpdate()
                     xOffset, yOffset = verticalPath(elapsed, fontString.animatingDuration, -fontString.distance);
                 elseif (fontString.animation == "fountain") then
                     xOffset, yOffset = arcPath(elapsed, fontString.animatingDuration, fontString.arcXDist, 0, fontString.arcTop, fontString.arcBottom);
+                elseif (fontString.animation == "rainfall") then
+                    _, yOffset = verticalPath(elapsed, fontString.animatingDuration, -fontString.distance);
+                    xOffset = fontString.rainfallX;
+                    yOffset = yOffset + fontString.rainfallStartY;
                 -- elseif (fontString.animation == "shake") then
                     -- TODO
                 end
@@ -514,9 +524,13 @@ function NameplateSCT:Animate(fontString, anchorFrame, duration, animation)
         fontString.arcXDist = arcDirection * math.random(ANIMATION_ARC_X_MIN, ANIMATION_ARC_X_MAX);
 
         arcDirection = arcDirection * -1;
-    elseif (animation == "shake") then
-        fontString.deflection = ANIMATION_SHAKE_DEFLECTION;
-        fontString.numShakes = ANIMATION_SHAKE_NUM_SHAKES;
+    elseif (animation == "rainfall") then
+        fontString.distance = math.random(ANIMATION_RAINFALL_Y_MIN, ANIMATION_RAINFALL_Y_MAX);
+        fontString.rainfallX = math.random(-ANIMATION_RAINFALL_X_MAX, ANIMATION_RAINFALL_X_MAX);
+        fontString.rainfallStartY = -math.random(ANIMATION_RAINFALL_Y_START_MIN, ANIMATION_RAINFALL_Y_START_MAX);
+    -- elseif (animation == "shake") then
+    --     fontString.deflection = ANIMATION_SHAKE_DEFLECTION;
+    --     fontString.numShakes = ANIMATION_SHAKE_NUM_SHAKES;
     end
 
     animating[fontString] = true;
@@ -810,6 +824,7 @@ local animationValues = {
     ["verticalUp"] = "Vertical Up",
     ["verticalDown"] = "Vertical Down",
     ["fountain"] = "Fountain",
+    ["rainfall"] = "Rainfall",
 };
 
 local menu = {
