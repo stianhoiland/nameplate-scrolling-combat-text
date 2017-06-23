@@ -636,10 +636,13 @@ local numDamageEvents = 0;
 local lastDamageEventTime;
 local runningAverageDamageEvents = 0;
 function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
-    local text, animation, pow, size, icon, alpha;
+    local text, textWithoutIcons, animation, pow, size, icon, alpha;
     local frameLevel = FRAME_LEVEL_ABOVE;
 
-    if (self.db.global.useOffTarget and (not UnitGUID("target") == guid)) then
+    local unit = guidToUnit[guid];
+    local isTarget = unit and UnitIsUnit(unit, "target");
+
+    if (self.db.global.useOffTarget and not isTarget) then
         size = self.db.global.offTargetFormatting.size;
         icon = self.db.global.offTargetFormatting.icon;
         alpha = self.db.global.offTargetFormatting.alpha;
@@ -659,42 +662,52 @@ function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
         pow = false;
     end
 
-    -- truncate
-    if (self.db.global.truncate and amount >= 1000000 and self.db.global.truncateLetter) then
-        text = string.format("%.1fM", amount / 1000000);
-    elseif (self.db.global.truncate and amount >= 1000) then
-        text = string.format("%.0f", amount / 1000);
+    if (icon ~= "only") then
+        -- truncate
+        if (self.db.global.truncate and amount >= 1000000 and self.db.global.truncateLetter) then
+            text = string.format("%.1fM", amount / 1000000);
+        elseif (self.db.global.truncate and amount >= 1000) then
+            text = string.format("%.0f", amount / 1000);
 
-        if (self.db.global.truncateLetter) then
-            text = text.."k";
-        end
-    else
-        if (self.db.global.commaSeperate) then
-            text = commaSeperate(amount);
+            if (self.db.global.truncateLetter) then
+                text = text.."k";
+            end
         else
-            text = tostring(amount);
+            if (self.db.global.commaSeperate) then
+                text = commaSeperate(amount);
+            else
+                text = tostring(amount);
+            end
         end
-    end
 
-    -- color text
-    if (self.db.global.damageColor and school and DAMAGE_TYPE_COLORS[school]) then
-        text = "|Cff"..DAMAGE_TYPE_COLORS[school]..text.."|r";
+        -- color text
+        if (self.db.global.damageColor and school and DAMAGE_TYPE_COLORS[school]) then
+            text = "|Cff"..DAMAGE_TYPE_COLORS[school]..text.."|r";
+        else
+            text = "|Cff"..self.db.global.defaultColor..text.."|r";
+        end
+
+        -- add icons
+        textWithoutIcons = text;
+        if (icon ~= "none" and spellID) then
+            local iconText = "|T"..GetSpellTexture(spellID)..":0|t";
+
+            if (icon == "both") then
+                text = iconText..text..iconText;
+            elseif (icon == "left") then
+                text = iconText..text;
+            elseif (icon == "right") then
+                text = text..iconText;
+            end
+        end
     else
-        text = "|Cff"..self.db.global.defaultColor..text.."|r";
-    end
-
-    -- add icons
-    local textWithoutIcons = text;
-    if (icon ~= "none" and spellID) then
-        local iconText = "|T"..GetSpellTexture(spellID)..":0|t";
-
-        if (icon == "both") then
-            text = iconText..text..iconText;
-        elseif (icon == "left") then
-            text = iconText..text;
-        elseif (icon == "right") then
-            text = text..iconText;
+        -- showing only icons
+        if (not spellID) then
+            return;
         end
+
+        text = "|T"..GetSpellTexture(spellID)..":0|t";
+        textWithoutIcons = text; -- since the icon is by itself, the fontString won't have the strange scaling bug
     end
 
     -- shrink small hits
@@ -730,7 +743,10 @@ end
 function NameplateSCT:MissEvent(guid, spellID, missType)
     local text, animation, pow, size, icon, alpha;
 
-    if (self.db.global.useOffTarget and (not UnitGUID("target") == guid)) then
+    local unit = guidToUnit[guid];
+    local isTarget = unit and UnitIsUnit(unit, "target");
+
+    if (self.db.global.useOffTarget and not isTarget) then
         size = self.db.global.offTargetFormatting.size;
         icon = self.db.global.offTargetFormatting.icon;
         alpha = self.db.global.offTargetFormatting.alpha;
@@ -738,6 +754,10 @@ function NameplateSCT:MissEvent(guid, spellID, missType)
         size = self.db.global.formatting.size;
         icon = self.db.global.formatting.icon;
         alpha = self.db.global.formatting.alpha;
+    end
+
+    if (icon == "only") then
+        return;
     end
 
     animation = self.db.global.animations.miss;
@@ -817,6 +837,7 @@ local iconValues = {
     ["left"] = "Left Side",
     ["right"] = "Right Side",
     ["both"] = "Both Sides",
+    ["only"] = "Icons Only (No Text)",
 };
 
 local animationValues = {
