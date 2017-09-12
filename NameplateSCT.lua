@@ -611,11 +611,7 @@ function NameplateSCT:COMBAT_LOG_EVENT_UNFILTERED(event, time, cle, hideCaster, 
                     spellID, spellName, spellSchool, missType, isOffHand, amountMissed = ...;
                 end
 
-                self:MissEvent(destUnit, spellID, missType);
-            -- elseif(string.find(cle, "_HEAL")) then
-            --     local spellID, spellName, spellSchool, amount, overhealing, absorbed, critical = ...;
-
-            --     self:HealEvent(destUnit, spellID, amount, critical);
+                self:MissEvent(destGUID, spellID, missType);
             end
         end
     end
