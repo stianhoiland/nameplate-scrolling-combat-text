@@ -682,7 +682,10 @@ function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
         end
 
         -- color text
-        if (self.db.global.damageColor and school and DAMAGE_TYPE_COLORS[school]) then
+        if (spellID == nil) then
+            -- is auto attack, use white text
+            text = "|Cff".."FFFFFF"..text.."|r";        
+        elseif (self.db.global.damageColor and school and DAMAGE_TYPE_COLORS[school]) then
             text = "|Cff"..DAMAGE_TYPE_COLORS[school]..text.."|r";
         else
             text = "|Cff"..self.db.global.defaultColor..text.."|r";
