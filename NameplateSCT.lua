@@ -65,6 +65,8 @@ local defaults = {
             normal = "fountain",
             crit = "verticalUp",
             miss = "verticalUp",
+            autoattack = "fountain",
+            autoattackcrit = "verticalUp",
         },
 
         formatting = {
@@ -635,6 +637,21 @@ local runningAverageDamageEvents = 0;
 function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
     local text, textWithoutIcons, animation, pow, size, icon, alpha;
     local frameLevel = FRAME_LEVEL_ABOVE;
+    local autoattack = not spellID;
+
+    -- select an animation
+    if (autoattack and crit) then
+        animation = self.db.global.animations.autoattackcrit;
+    elseif (autoattack and not crit) then
+        animation = self.db.global.animations.autoattack;
+    elseif (not autoattack and crit) then
+        animation = self.db.global.animations.crit;
+    elseif (not autoattack and not crit) then
+        animation = self.db.global.animations.normal;
+    else
+        print("woops");
+    end
+
     -- skip if this damage event is disabled
     if (animation == "disabled") then
         return;
@@ -653,13 +670,11 @@ function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
         alpha = self.db.global.formatting.alpha;
     end
 
-    -- select an animation
+    -- modify for crit
     if (crit) then
         frameLevel = FRAME_LEVEL_OVERLAY;
-        animation = self.db.global.animations.crit;
         pow = true;
     else
-        animation = self.db.global.animations.normal;
         pow = false;
     end
 
@@ -921,6 +936,24 @@ local menu = {
                     set = function(_, newValue) NameplateSCT.db.global.animations.miss = newValue; end,
                     values = animationValues,
                     order = 3,
+                },
+                autoattack = {
+                    type = 'select',
+                    name = "Auto Attacks",
+                    desc = "",
+                    get = function() return NameplateSCT.db.global.animations.autoattack; end,
+                    set = function(_, newValue) NameplateSCT.db.global.animations.autoattack = newValue; end,
+                    values = animationValues,
+                    order = 4,
+                },
+                autoattackcrit = {
+                    type = 'select',
+                    name = "Critical",
+                    desc = "Auto attacks that are critical hits",
+                    get = function() return NameplateSCT.db.global.animations.autoattackcrit; end,
+                    set = function(_, newValue) NameplateSCT.db.global.animations.autoattackcrit = newValue; end,
+                    values = animationValues,
+                    order = 5,
                 },
             },
         },
