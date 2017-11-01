@@ -59,6 +59,7 @@ local defaults = {
             smallHits = true,
             smallHitsScale = 0.66,
             smallHitsHide = false,
+            autoattackcritsizing = true,
         },
 
         animations = {
@@ -753,7 +754,12 @@ function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
 
     -- embiggen crit's size
     if (self.db.global.sizing.crits and crit) then
-        size = size * self.db.global.sizing.critsScale;
+        if (autoattack and not self.db.global.sizing.autoattackcritsizing) then
+            -- don't embiggen autoattacks
+            pow = false;
+        else
+            size = size * self.db.global.sizing.critsScale;
+        end
     end
 
     -- make sure that size is larger than 5
@@ -954,6 +960,14 @@ local menu = {
                     set = function(_, newValue) NameplateSCT.db.global.animations.autoattackcrit = newValue; end,
                     values = animationValues,
                     order = 5,
+                },
+                autoattackcritsizing = {
+                    type = 'toggle',
+                    name = "Embiggen Crits",
+                    desc = "Embiggen critical auto attacks",
+                    get = function() return NameplateSCT.db.global.sizing.autoattackcritsizing; end,
+                    set = function(_, newValue) NameplateSCT.db.global.sizing.autoattackcritsizing = newValue; end,
+                    order = 6,
                 },
             },
         },
