@@ -62,7 +62,7 @@ local defaults = {
         },
 
         animations = {
-            normal = "fountain",
+            ability = "fountain",
             crit = "verticalUp",
             miss = "verticalUp",
             autoattack = "fountain",
@@ -647,7 +647,7 @@ function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
     elseif (not autoattack and crit) then
         animation = self.db.global.animations.crit;
     elseif (not autoattack and not crit) then
-        animation = self.db.global.animations.normal;
+        animation = self.db.global.animations.ability;
     else
         print("woops");
     end
@@ -910,12 +910,12 @@ local menu = {
             inline = true,
             disabled = function() return not NameplateSCT.db.global.enabled; end;
             args = {
-                normal = {
+                ability = {
                     type = 'select',
-                    name = "Default",
+                    name = "Abilities",
                     desc = "",
-                    get = function() return NameplateSCT.db.global.animations.normal; end,
-                    set = function(_, newValue) NameplateSCT.db.global.animations.normal = newValue; end,
+                    get = function() return NameplateSCT.db.global.animations.ability; end,
+                    set = function(_, newValue) NameplateSCT.db.global.animations.ability = newValue; end,
                     values = animationValues,
                     order = 1,
                 },
