@@ -921,7 +921,7 @@ local menu = {
                 },
                 crit = {
                     type = 'select',
-                    name = "Criticals",
+                    name = "Critical",
                     desc = "",
                     get = function() return NameplateSCT.db.global.animations.crit; end,
                     set = function(_, newValue) NameplateSCT.db.global.animations.crit = newValue; end,
