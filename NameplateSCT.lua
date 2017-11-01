@@ -634,6 +634,10 @@ local runningAverageDamageEvents = 0;
 function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
     local text, textWithoutIcons, animation, pow, size, icon, alpha;
     local frameLevel = FRAME_LEVEL_ABOVE;
+    -- skip if this damage event is disabled
+    if (animation == "disabled") then
+        return;
+    end;
 
     local unit = guidToUnit[guid];
     local isTarget = unit and UnitIsUnit(unit, "target");
@@ -842,6 +846,7 @@ local animationValues = {
     ["verticalDown"] = "Vertical Down",
     ["fountain"] = "Fountain",
     ["rainfall"] = "Rainfall",
+    ["disabled"] = "Disabled",
 };
 
 local menu = {
