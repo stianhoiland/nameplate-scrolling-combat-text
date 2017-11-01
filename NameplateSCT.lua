@@ -58,6 +58,7 @@ local defaults = {
 
             smallHits = true,
             smallHitsScale = 0.66,
+            smallHitsHide = false,
         },
 
         animations = {
@@ -711,7 +712,7 @@ function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
     end
 
     -- shrink small hits
-    if (self.db.global.sizing.smallHits) then
+    if (self.db.global.sizing.smallHits or self.db.global.sizing.smallHitsHide) then
         if (not lastDamageEventTime or (lastDamageEventTime + SMALL_HIT_EXPIRY_WINDOW < GetTime())) then
             numDamageEvents = 0;
             runningAverageDamageEvents = 0;
@@ -723,7 +724,12 @@ function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
 
         if ((not crit and amount < SMALL_HIT_MULTIPIER*runningAverageDamageEvents)
             or (crit and amount/2 < SMALL_HIT_MULTIPIER*runningAverageDamageEvents)) then
-            size = size * self.db.global.sizing.smallHitsScale;
+            if (self.db.global.sizing.smallHitsHide) then
+                -- skip this damage event, it's too small
+                return;
+            else
+                size = size * self.db.global.sizing.smallHitsScale;
+            end
         end
     end
 
@@ -1131,6 +1137,7 @@ local menu = {
                     type = 'toggle',
                     name = "Scale Down Small Hits",
                     desc = "",
+                    disabled = function() return NameplateSCT.db.global.sizing.smallHitsHide; end,
                     get = function() return NameplateSCT.db.global.sizing.smallHits; end,
                     set = function(_, newValue) NameplateSCT.db.global.sizing.smallHits = newValue; end,
                     order = 10,
@@ -1139,7 +1146,7 @@ local menu = {
                     type = 'range',
                     name = "Small Hits Scale",
                     desc = "",
-                    disabled = function() return not NameplateSCT.db.global.enabled or not NameplateSCT.db.global.sizing.smallHits; end,
+                    disabled = function() return not NameplateSCT.db.global.enabled or not NameplateSCT.db.global.sizing.smallHits or NameplateSCT.db.global.sizing.smallHitsHide; end,
                     min = 0.33,
                     max = 1,
                     step = .01,
@@ -1147,6 +1154,14 @@ local menu = {
                     set = function(_, newValue) NameplateSCT.db.global.sizing.smallHitsScale = newValue; end,
                     order = 11,
                     width = "double",
+                },
+                smallHitsHide = {
+                    type = 'toggle',
+                    name = "Hide Small Hits",
+                    desc = "Hide hits that are below a running average of your recent damage output",
+                    get = function() return NameplateSCT.db.global.sizing.smallHitsHide; end,
+                    set = function(_, newValue) NameplateSCT.db.global.sizing.smallHitsHide = newValue; end,
+                    order = 12,
                 },
             },
         },
