@@ -1002,6 +1002,7 @@ local menu = {
                     type = 'color',
                     name = "Default Color",
                     desc = "",
+                    disabled = function() return NameplateSCT.db.global.damageColor; end,
                     hasAlpha = false,
                     set = function(_, r, g, b) NameplateSCT.db.global.defaultColor = rgbToHex(r, g, b); end,
                     get = function() return hexToRGB(NameplateSCT.db.global.defaultColor); end,
