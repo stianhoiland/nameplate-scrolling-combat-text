@@ -676,6 +676,7 @@ function NameplateSCT:DamageEvent(guid, spellID, amount, school, crit)
         frameLevel = FRAME_LEVEL_OVERLAY;
         pow = true;
     else
+        frameLevel = FRAME_LEVEL_ABOVE;
         pow = false;
     end
 
