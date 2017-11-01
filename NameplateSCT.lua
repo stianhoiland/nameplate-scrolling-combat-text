@@ -1054,7 +1054,7 @@ local menu = {
                 truncateLetter = {
                     type = 'toggle',
                     name = "Show Truncated Letter",
-                    desc = "",
+                    desc = "The 'k' in 23k",
                     disabled = function() return not NameplateSCT.db.global.enabled or not NameplateSCT.db.global.truncate; end,
                     get = function() return NameplateSCT.db.global.truncateLetter; end,
                     set = function(_, newValue) NameplateSCT.db.global.truncateLetter = newValue; end,
@@ -1186,7 +1186,7 @@ local menu = {
                 smallHits = {
                     type = 'toggle',
                     name = "Scale Down Small Hits",
-                    desc = "",
+                    desc = "Scale down hits that are below a running average of your recent damage output",
                     disabled = function() return NameplateSCT.db.global.sizing.smallHitsHide; end,
                     get = function() return NameplateSCT.db.global.sizing.smallHits; end,
                     set = function(_, newValue) NameplateSCT.db.global.sizing.smallHits = newValue; end,
